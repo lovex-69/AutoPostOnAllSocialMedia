@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, run_migrations
 from app.routes import router as api_router
 from app.scheduler import start_scheduler, stop_scheduler
 from app.utils.logger import get_logger
@@ -33,6 +33,9 @@ async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────────────────────────
     logger.info("Creating database tables (if they don't exist)...")
     Base.metadata.create_all(bind=engine)
+
+    logger.info("Running lightweight migrations...")
+    run_migrations()
 
     logger.info("Starting background scheduler...")
     start_scheduler()

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from dateutil import parser as dateutil_parser
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -50,6 +51,7 @@ async def create_tool(
     description: Optional[str] = Form(None),
     website: Optional[str] = Form(None),
     video_url: Optional[str] = Form(None),
+    scheduled_at: Optional[str] = Form(None),
     video_file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     _auth: bool = Depends(verify_auth),
@@ -77,6 +79,20 @@ async def create_tool(
         video_url = dest_path  # store the local path as the "url"
         logger.info("Video uploaded: %s", dest_path)
 
+    # Parse optional scheduled_at datetime
+    parsed_schedule = None
+    if scheduled_at and scheduled_at.strip():
+        try:
+            parsed_schedule = dateutil_parser.isoparse(scheduled_at.strip())
+            # Ensure timezone-aware (assume UTC if naive)
+            if parsed_schedule.tzinfo is None:
+                parsed_schedule = parsed_schedule.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid scheduled_at format. Use ISO-8601 (e.g. 2025-07-15T14:30:00Z).",
+            )
+
     tool = AITool(
         tool_name=tool_name,
         handle=handle or None,
@@ -84,6 +100,7 @@ async def create_tool(
         website=website or None,
         video_url=video_url,  # type: ignore[arg-type]
         status="READY",
+        scheduled_at=parsed_schedule,
     )
     db.add(tool)
     db.commit()
@@ -95,6 +112,7 @@ async def create_tool(
         "id": tool.id,
         "tool_name": tool.tool_name,
         "status": tool.status,
+        "scheduled_at": tool.scheduled_at.isoformat() if tool.scheduled_at else None,
         "message": "Tool created and queued for posting.",
     }
 
@@ -116,6 +134,7 @@ async def list_tools(db: Session = Depends(get_db), _auth: bool = Depends(verify
             "instagram_status": t.instagram_status,
             "youtube_status": t.youtube_status,
             "x_status": t.x_status,
+            "scheduled_at": t.scheduled_at.isoformat() if t.scheduled_at else None,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "posted_at": t.posted_at.isoformat() if t.posted_at else None,
         }
@@ -141,6 +160,7 @@ async def get_tool(tool_id: int, db: Session = Depends(get_db), _auth: bool = De
         "instagram_status": tool.instagram_status,
         "youtube_status": tool.youtube_status,
         "x_status": tool.x_status,
+        "scheduled_at": tool.scheduled_at.isoformat() if tool.scheduled_at else None,
         "created_at": tool.created_at.isoformat() if tool.created_at else None,
         "posted_at": tool.posted_at.isoformat() if tool.posted_at else None,
     }

@@ -39,6 +39,7 @@ class AITool(Base):
         nullable=False,
     )
     posted_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
+    scheduled_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self) -> str:
         return f"<AITool id={self.id} name={self.tool_name!r} status={self.status}>"

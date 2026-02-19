@@ -504,6 +504,32 @@
             padding: .1rem .4rem;
         }
 
+        /* ── Expanded per-platform detail ─────────────────────── */
+        .platform-detail {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .25rem .6rem;
+            font-size: .78rem;
+        }
+
+        .platform-detail .p-row {
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+        }
+
+        .platform-detail .p-label {
+            color: var(--text-dim);
+            font-weight: 600;
+            min-width: 2rem;
+        }
+
+        .schedule-info {
+            font-size: .72rem;
+            color: var(--amber);
+            margin-top: .2rem;
+        }
+
         .empty-state {
             text-align: center;
             padding: 3rem 1rem;
@@ -643,6 +669,16 @@
                             <div>Drag & drop MP4 here or <strong>click to browse</strong></div>
                             <div class="file-name" id="fileName"></div>
                             <input type="file" id="video_file" accept="video/mp4" />
+                        </div>
+                    </div>
+
+                    <!-- Optional scheduled posting -->
+                    <div class="form-group">
+                        <label for="scheduled_at">Schedule (optional)</label>
+                        <input type="datetime-local" id="scheduled_at" name="scheduled_at"
+                            style="color-scheme:dark;" />
+                        <div style="font-size:.7rem;color:var(--text-dim);margin-top:.25rem;">
+                            Leave empty to post immediately on next scheduler cycle.
                         </div>
                     </div>
 
@@ -892,6 +928,13 @@
                     throw new Error('Provide a video URL or upload a video file.');
                 }
 
+                // Optional schedule
+                const schedVal = document.getElementById('scheduled_at').value;
+                if (schedVal) {
+                    // datetime-local gives "YYYY-MM-DDTHH:MM" — append :00Z for ISO
+                    fd.append('scheduled_at', schedVal + ':00Z');
+                }
+
                 const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd, headers: authHeaders() });
                 const data = await res.json();
 
@@ -939,14 +982,17 @@
                                     </td>
                                     <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>
                                     <td>
-                                        <div class="platform-badges">
-                                            ${platformBadge('LI', t.linkedin_status)}
-                                            ${platformBadge('IG', t.instagram_status)}
-                                            ${platformBadge('YT', t.youtube_status)}
-                                            ${platformBadge('X', t.x_status)}
+                                        <div class="platform-detail">
+                                            <div class="p-row"><span class="p-label">YT</span> ${platformBadge('YouTube', t.youtube_status)}</div>
+                                            <div class="p-row"><span class="p-label">X</span> ${platformBadge('X', t.x_status)}</div>
+                                            <div class="p-row"><span class="p-label">LI</span> ${platformBadge('LinkedIn', t.linkedin_status)}</div>
+                                            <div class="p-row"><span class="p-label">IG</span> ${platformBadge('Instagram', t.instagram_status)}</div>
                                         </div>
                                     </td>
                                     <td style="font-size:.78rem;color:var(--text-dim);white-space:nowrap;">
+                                        ${t.scheduled_at && t.status === 'READY'
+                                            ? `<div class="schedule-info">&#128337; ${new Date(t.scheduled_at).toLocaleString()}</div>`
+                                            : ''}
                                         ${t.posted_at ? new Date(t.posted_at).toLocaleDateString() : new Date(t.created_at).toLocaleDateString()}
                                     </td>
                                 </tr>
@@ -964,7 +1010,7 @@
                 : status === 'FAILED' ? 'failed'
                     : status === 'SKIPPED' ? 'skipped'
                         : 'pending';
-            return `<span class="badge badge-${cls}">${label}</span>`;
+            return `<span class="badge badge-${cls}">${status}</span>`;
         }
 
         function esc(s) {

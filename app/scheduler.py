@@ -8,6 +8,7 @@ Key features:
   * Local video file cleaned up after each record is processed.
 """
 
+import os
 import time
 import functools
 from datetime import datetime, timezone
@@ -27,6 +28,9 @@ from app.services.x_service import post_to_x
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Directory where user uploads are stored
+_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 
 
 # ── Retry decorator ──────────────────────────────────────────────────────────
@@ -70,6 +74,22 @@ _post_youtube = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post
 _post_x = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_x)
 
 
+# ── Cleanup helpers ───────────────────────────────────────────────────────────
+
+def _cleanup_original_upload(video_url: str) -> None:
+    """Delete the original uploaded file if it lives in the uploads/ directory."""
+    try:
+        if not video_url:
+            return
+        normalised = os.path.normpath(video_url)
+        uploads_dir = os.path.normpath(_UPLOAD_DIR)
+        if normalised.startswith(uploads_dir) and os.path.exists(normalised):
+            os.remove(normalised)
+            logger.info("Deleted original upload: %s", normalised)
+    except OSError as exc:
+        logger.warning("Failed to delete original upload %s: %s", video_url, exc)
+
+
 # ── Core job ──────────────────────────────────────────────────────────────────
 
 def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
@@ -91,87 +111,104 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
         logger.error("Skipping tool %d — video download failed.", tool.id)
         tool.status = "FAILED"
         db.commit()
+        _cleanup_original_upload(tool.video_url)
         return
 
     # 3. Post to each platform ─────────────────────────────────────────────
-    success_count = 0
+    try:
+        success_count = 0
 
-    # LinkedIn
-    if settings.LINKEDIN_ACCESS_TOKEN and settings.LINKEDIN_ORG_ID:
-        linkedin_ok = _post_linkedin(captions["linkedin"], video_path)
-        tool.linkedin_status = "SUCCESS" if linkedin_ok else "FAILED"
-        if linkedin_ok:
-            success_count += 1
-    else:
-        tool.linkedin_status = "SKIPPED"
-        logger.info("LinkedIn: skipped (credentials not configured).")
+        # LinkedIn
+        if settings.LINKEDIN_ACCESS_TOKEN and settings.LINKEDIN_ORG_ID:
+            linkedin_ok = _post_linkedin(captions["linkedin"], video_path)
+            tool.linkedin_status = "SUCCESS" if linkedin_ok else "FAILED"
+            if linkedin_ok:
+                success_count += 1
+        else:
+            tool.linkedin_status = "SKIPPED"
+            logger.info("LinkedIn: skipped (credentials not configured).")
 
-    # Instagram  (uses the *public* video URL, not local path)
-    if settings.META_ACCESS_TOKEN and settings.INSTAGRAM_BUSINESS_ID:
-        instagram_ok = _post_instagram(captions["instagram"], tool.video_url)
-        tool.instagram_status = "SUCCESS" if instagram_ok else "FAILED"
-        if instagram_ok:
-            success_count += 1
-    else:
-        tool.instagram_status = "SKIPPED"
-        logger.info("Instagram: skipped (credentials not configured).")
+        # Instagram  (uses the *public* video URL, not local path)
+        if settings.META_ACCESS_TOKEN and settings.INSTAGRAM_BUSINESS_ID:
+            instagram_ok = _post_instagram(captions["instagram"], tool.video_url)
+            tool.instagram_status = "SUCCESS" if instagram_ok else "FAILED"
+            if instagram_ok:
+                success_count += 1
+        else:
+            tool.instagram_status = "SKIPPED"
+            logger.info("Instagram: skipped (credentials not configured).")
 
-    # YouTube
-    if settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_CLIENT_SECRET and settings.YOUTUBE_REFRESH_TOKEN:
-        youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], video_path)
-        tool.youtube_status = "SUCCESS" if youtube_ok else "FAILED"
-        if youtube_ok:
-            success_count += 1
-    else:
-        tool.youtube_status = "SKIPPED"
-        logger.info("YouTube: skipped (credentials not configured).")
+        # YouTube
+        if settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_CLIENT_SECRET and settings.YOUTUBE_REFRESH_TOKEN:
+            youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], video_path)
+            tool.youtube_status = "SUCCESS" if youtube_ok else "FAILED"
+            if youtube_ok:
+                success_count += 1
+        else:
+            tool.youtube_status = "SKIPPED"
+            logger.info("YouTube: skipped (credentials not configured).")
 
-    # X (Twitter)
-    if settings.X_API_KEY and settings.X_API_SECRET and settings.X_ACCESS_TOKEN and settings.X_ACCESS_SECRET:
-        x_ok = _post_x(captions["x"], video_path)
-        tool.x_status = "SUCCESS" if x_ok else "FAILED"
-        if x_ok:
-            success_count += 1
-    else:
-        tool.x_status = "SKIPPED"
-        logger.info("X/Twitter: skipped (credentials not configured).")
+        # X (Twitter)
+        if settings.X_API_KEY and settings.X_API_SECRET and settings.X_ACCESS_TOKEN and settings.X_ACCESS_SECRET:
+            x_ok = _post_x(captions["x"], video_path)
+            tool.x_status = "SUCCESS" if x_ok else "FAILED"
+            if x_ok:
+                success_count += 1
+        else:
+            tool.x_status = "SKIPPED"
+            logger.info("X/Twitter: skipped (credentials not configured).")
 
-    # 4. Update overall status ─────────────────────────────────────────────
-    # Count how many platforms were actually attempted
-    attempted = sum(
-        1 for s in (tool.linkedin_status, tool.instagram_status,
-                     tool.youtube_status, tool.x_status)
-        if s != "SKIPPED"
-    )
-
-    if success_count > 0:
-        tool.status = "POSTED"
-        tool.posted_at = datetime.now(timezone.utc)
-        logger.info(
-            "Tool %d posted to %d/%d platforms (%d skipped).",
-            tool.id, success_count, attempted, 4 - attempted,
+        # 4. Update overall status ─────────────────────────────────────────
+        attempted = sum(
+            1 for s in (tool.linkedin_status, tool.instagram_status,
+                         tool.youtube_status, tool.x_status)
+            if s != "SKIPPED"
         )
-    elif attempted == 0:
-        tool.status = "FAILED"
-        logger.warning(
-            "Tool %d: no platforms are configured. Check your .env credentials.",
-            tool.id,
-        )
-    else:
-        tool.status = "FAILED"
-        logger.warning("Tool %d failed on all %d attempted platforms.", tool.id, attempted)
 
-    db.commit()
+        if success_count > 0:
+            tool.status = "POSTED"
+            tool.posted_at = datetime.now(timezone.utc)
+            logger.info(
+                "Tool %d posted to %d/%d platforms (%d skipped).",
+                tool.id, success_count, attempted, 4 - attempted,
+            )
+        elif attempted == 0:
+            tool.status = "FAILED"
+            logger.warning(
+                "Tool %d: no platforms are configured. Check your .env credentials.",
+                tool.id,
+            )
+        else:
+            tool.status = "FAILED"
+            logger.warning("Tool %d failed on all %d attempted platforms.", tool.id, attempted)
 
-    # 5. Cleanup downloaded video ──────────────────────────────────────────
-    cleanup_video(video_path)
+        db.commit()
+
+    finally:
+        # 5. ALWAYS cleanup temp video + original upload ───────────────────
+        cleanup_video(video_path)
+        _cleanup_original_upload(tool.video_url)
 
 
 def check_and_post() -> None:
-    """Scheduler entry-point: fetch READY records and process each one."""
+    """Scheduler entry-point: fetch READY records and process each one.
+
+    Picks up tools with status READY whose ``scheduled_at`` is either NULL
+    (post immediately) or in the past / now.
+    """
     db = SessionLocal()
+    now = datetime.now(timezone.utc)
     try:
-        tools = db.query(AITool).filter(AITool.status == "READY").all()
+        from sqlalchemy import or_
+
+        tools = (
+            db.query(AITool)
+            .filter(
+                AITool.status == "READY",
+                or_(AITool.scheduled_at.is_(None), AITool.scheduled_at <= now),
+            )
+            .all()
+        )
         if not tools:
             logger.debug("No READY tools found.")
             return
@@ -185,6 +222,8 @@ def check_and_post() -> None:
                 )
                 tool.status = "FAILED"
                 db.commit()
+                # Best-effort cleanup even on unhandled crash
+                _cleanup_original_upload(tool.video_url)
     finally:
         db.close()
 
