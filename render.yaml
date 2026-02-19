@@ -31,6 +31,8 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: APP_SECRET_KEY
+        sync: false
       - key: SCHEDULER_INTERVAL_MINUTES
         value: "5"
       - key: MAX_RETRIES
