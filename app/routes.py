@@ -8,14 +8,16 @@ Endpoints:
   PATCH /api/tools/{id} — update a tool (e.g. set status to READY)
 """
 
+import hmac
 import os
 import shutil
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models import AITool
 from app.utils.logger import get_logger
@@ -23,6 +25,18 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["tools"])
+
+
+# ── Auth dependency ───────────────────────────────────────────────────────────
+
+def verify_auth(x_auth_key: Optional[str] = Header(None)):
+    """Require a valid secret key in the X-Auth-Key header.
+
+    The /health endpoint is excluded (no auth needed for wake-up pings).
+    """
+    if not x_auth_key or not hmac.compare_digest(x_auth_key, settings.APP_SECRET_KEY):
+        raise HTTPException(status_code=401, detail="Unauthorized.")
+    return True
 
 # Directory for user-uploaded videos
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
@@ -38,6 +52,7 @@ async def create_tool(
     video_url: Optional[str] = Form(None),
     video_file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_auth),
 ):
     """Create a new AI-tool record.
 
@@ -85,7 +100,7 @@ async def create_tool(
 
 
 @router.get("/tools")
-async def list_tools(db: Session = Depends(get_db)):
+async def list_tools(db: Session = Depends(get_db), _auth: bool = Depends(verify_auth)):
     """Return all AI-tool records, newest first."""
     tools = db.query(AITool).order_by(AITool.created_at.desc()).all()
     return [
@@ -109,7 +124,7 @@ async def list_tools(db: Session = Depends(get_db)):
 
 
 @router.get("/tools/{tool_id}")
-async def get_tool(tool_id: int, db: Session = Depends(get_db)):
+async def get_tool(tool_id: int, db: Session = Depends(get_db), _auth: bool = Depends(verify_auth)):
     """Fetch a single tool by ID."""
     tool = db.query(AITool).filter(AITool.id == tool_id).first()
     if not tool:
@@ -136,6 +151,7 @@ async def update_tool_status(
     tool_id: int,
     status: str = Form(...),
     db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_auth),
 ):
     """Update the overall status of a tool (e.g. set back to READY)."""
     tool = db.query(AITool).filter(AITool.id == tool_id).first()

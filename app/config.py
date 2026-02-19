@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # ── Frontend (Vercel) ──────────────────────────────────────────────────
     FRONTEND_URL: Optional[str] = "*"
 
+    # ── Auth ──────────────────────────────────────────────────────────────
+    APP_SECRET_KEY: str = "change-me-to-a-strong-random-string"
+
     # ── Scheduler ─────────────────────────────────────────────────────────
     SCHEDULER_INTERVAL_MINUTES: int = 5
 

@@ -567,12 +567,17 @@
             <h2>ExecutionPosting</h2>
             <p>Automated multi-platform AI tool distribution.<br>
                 The backend server may be sleeping — tap below to wake it up.</p>
+            <div class="form-group" style="margin-bottom:1.2rem;text-align:left;">
+                <label for="gatePassword" style="display:block;font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem;">Access Key</label>
+                <input type="password" id="gatePassword" placeholder="Enter your secret key"
+                    style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;" />
+            </div>
             <div class="gate-status" id="gateStatus">
                 <span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--text-dim);display:inline-block;"></span>
                 Checking server status...
             </div>
             <button class="gate-btn" id="gateBtn" onclick="wakeServer()">
-                I'm Human — Wake Up Server
+                Unlock & Wake Up Server
             </button>
         </div>
     </div>
@@ -585,9 +590,12 @@
         </header>
 
         <!-- Server status bar -->
-        <div class="server-bar online" id="serverBar">
-            <span class="dot"></span>
-            <span id="serverText">Server Online</span>
+        <div class="server-bar online" id="serverBar" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:.5rem;">
+                <span class="dot"></span>
+                <span id="serverText">Server Online</span>
+            </div>
+            <button onclick="logout()" style="background:transparent;border:1px solid rgba(248,113,113,.3);color:var(--red);padding:.2rem .6rem;border-radius:6px;font-size:.72rem;font-weight:600;cursor:pointer;">Logout</button>
         </div>
 
         <div class="grid">
@@ -674,6 +682,20 @@
         // When deployed, this will be set via env/config.
         // For local dev it defaults to '' (same-origin).
 
+        // ── Auth helpers ──────────────────────────────────────
+        function getAuthKey() {
+            return sessionStorage.getItem('ep_auth_key') || '';
+        }
+
+        function authHeaders() {
+            return { 'X-Auth-Key': getAuthKey() };
+        }
+
+        function logout() {
+            sessionStorage.removeItem('ep_auth_key');
+            location.reload();
+        }
+
         // ── Gate / Wake-up logic ──────────────────────────────
         let serverOnline = false;
 
@@ -685,31 +707,55 @@
             return false;
         }
 
-        // Auto-check on page load
+        async function checkAuth(key) {
+            try {
+                const r = await fetch(`${API_BASE}/api/tools`, {
+                    headers: { 'X-Auth-Key': key },
+                    signal: AbortSignal.timeout(10000)
+                });
+                return r.ok;
+            } catch {}
+            return false;
+        }
+
+        // Auto-check on page load — if already logged in, try to skip gate
         (async () => {
             const gateStatus = document.getElementById('gateStatus');
             const gateBtn = document.getElementById('gateBtn');
+            const savedKey = getAuthKey();
 
             gateStatus.innerHTML = '<span class="spinner sm"></span> Checking server...';
 
             const online = await checkServer();
+            if (online && savedKey) {
+                const authed = await checkAuth(savedKey);
+                if (authed) { enterApp(); return; }
+            }
+
             if (online) {
-                enterApp();
+                gateStatus.innerHTML =
+                    '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;"></span> Server is online — enter your access key';
             } else {
                 gateStatus.innerHTML =
                     '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server is sleeping';
-                gateBtn.disabled = false;
             }
+            gateBtn.disabled = false;
         })();
 
         async function wakeServer() {
             const gateStatus = document.getElementById('gateStatus');
             const gateBtn = document.getElementById('gateBtn');
+            const passwordInput = document.getElementById('gatePassword');
+            const key = passwordInput.value.trim();
+
+            if (!key) {
+                gateStatus.innerHTML = '<span style="color:var(--red);">Please enter your access key.</span>';
+                return;
+            }
 
             gateBtn.disabled = true;
-            gateBtn.innerHTML = '<span class="spinner"></span> Waking up server...';
-            gateStatus.innerHTML =
-                '<span class="spinner sm"></span> Sending wake-up ping — this can take 30-60s on free tier...';
+            gateBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+            gateStatus.innerHTML = '<span class="spinner sm"></span> Waking server & verifying key...';
 
             // Keep pinging every 5s for up to 90s
             const start = Date.now();
@@ -718,8 +764,18 @@
             while (Date.now() - start < maxWait) {
                 const online = await checkServer();
                 if (online) {
-                    enterApp();
-                    return;
+                    // Server is up — verify the key
+                    const authed = await checkAuth(key);
+                    if (authed) {
+                        sessionStorage.setItem('ep_auth_key', key);
+                        enterApp();
+                        return;
+                    } else {
+                        gateStatus.innerHTML = '<span style="color:var(--red);">Invalid access key. Try again.</span>';
+                        gateBtn.disabled = false;
+                        gateBtn.innerHTML = 'Unlock & Wake Up Server';
+                        return;
+                    }
                 }
                 await new Promise(r => setTimeout(r, 5000));
             }
@@ -728,8 +784,13 @@
             gateStatus.innerHTML =
                 '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server did not respond. Try again.';
             gateBtn.disabled = false;
-            gateBtn.innerHTML = "I'm Human — Wake Up Server";
+            gateBtn.innerHTML = 'Unlock & Wake Up Server';
         }
+
+        // Also allow pressing Enter in password field
+        document.getElementById('gatePassword').addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); wakeServer(); }
+        });
 
         function enterApp() {
             serverOnline = true;
@@ -831,7 +892,7 @@
                     throw new Error('Provide a video URL or upload a video file.');
                 }
 
-                const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd });
+                const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd, headers: authHeaders() });
                 const data = await res.json();
 
                 if (!res.ok) throw new Error(data.detail || 'Submission failed');
@@ -852,7 +913,7 @@
         // ── Load tools list ───────────────────────────────────
         async function loadTools() {
             try {
-                const res = await fetch(`${API_BASE}/api/tools`);
+                const res = await fetch(`${API_BASE}/api/tools`, { headers: authHeaders() });
                 const tools = await res.json();
                 const container = document.getElementById('toolsContainer');
 
