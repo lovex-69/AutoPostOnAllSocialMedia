@@ -1,0 +1,39 @@
+# Render Blueprint — deploy the FastAPI backend as a web service.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: execution-posting-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_REFRESH_TOKEN
+        sync: false
+      - key: LINKEDIN_ACCESS_TOKEN
+        sync: false
+      - key: LINKEDIN_ORG_ID
+        sync: false
+      - key: X_API_KEY
+        sync: false
+      - key: X_API_SECRET
+        sync: false
+      - key: X_ACCESS_TOKEN
+        sync: false
+      - key: X_ACCESS_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: SCHEDULER_INTERVAL_MINUTES
+        value: "5"
+      - key: MAX_RETRIES
+        value: "3"
+      - key: RETRY_BACKOFF_SECONDS
+        value: "2"

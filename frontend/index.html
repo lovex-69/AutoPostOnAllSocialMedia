@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExecutionPosting — AI Tools Distribution</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <style>
+        /* ── Reset & Variables ────────────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0b0e14;
+            --surface: #131720;
+            --surface-2: #1a1f2e;
+            --border: #252b3b;
+            --text: #e4e8f1;
+            --text-dim: #8891a5;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, .35);
+            --green: #34d399;
+            --red: #f87171;
+            --amber: #fbbf24;
+            --blue: #60a5fa;
+            --radius: 14px;
+            --transition: .25s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* ── Layout ──────────────────────────────────────────── */
+        .app {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), #a78bfa, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            color: var(--text-dim);
+            margin-top: .4rem;
+            font-size: .95rem;
+        }
+
+        /* ── Server status bar ───────────────────────────────── */
+        .server-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            padding: .5rem 1rem;
+            border-radius: 10px;
+            font-size: .82rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            transition: all var(--transition);
+        }
+
+        .server-bar .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .server-bar.checking {
+            background: rgba(251, 191, 36, .1);
+            border: 1px solid rgba(251, 191, 36, .3);
+            color: var(--amber);
+        }
+
+        .server-bar.checking .dot {
+            background: var(--amber);
+            animation: pulse 1.2s infinite;
+        }
+
+        .server-bar.online {
+            background: rgba(52, 211, 153, .1);
+            border: 1px solid rgba(52, 211, 153, .3);
+            color: var(--green);
+        }
+
+        .server-bar.online .dot {
+            background: var(--green);
+        }
+
+        .server-bar.sleeping {
+            background: rgba(248, 113, 113, .1);
+            border: 1px solid rgba(248, 113, 113, .3);
+            color: var(--red);
+        }
+
+        .server-bar.sleeping .dot {
+            background: var(--red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .3; }
+        }
+
+        /* ── Gate overlay ────────────────────────────────────── */
+        .gate-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity .5s ease;
+        }
+
+        .gate-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .gate-box {
+            text-align: center;
+            max-width: 420px;
+            padding: 3rem 2rem;
+        }
+
+        .gate-box h2 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), #a78bfa, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: .8rem;
+        }
+
+        .gate-box p {
+            color: var(--text-dim);
+            font-size: .92rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .gate-status {
+            font-size: .85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            min-height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .4rem;
+        }
+
+        .gate-btn {
+            padding: .9rem 2.5rem;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            color: #fff;
+            letter-spacing: .3px;
+            transition: all var(--transition);
+            position: relative;
+        }
+
+        .gate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .gate-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1.3fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 800px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Card ────────────────────────────────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.8rem;
+            transition: border-color var(--transition);
+        }
+
+        .card:hover {
+            border-color: var(--accent);
+        }
+
+        .card h2 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        .card h2 .icon {
+            font-size: 1.3rem;
+        }
+
+        /* ── Form ────────────────────────────────────────────── */
+        .form-group {
+            margin-bottom: 1.1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            margin-bottom: .35rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .7rem 1rem;
+            color: var(--text);
+            font-family: inherit;
+            font-size: .9rem;
+            transition: border-color var(--transition), box-shadow var(--transition);
+            outline: none;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 72px;
+        }
+
+        /* ── Toggle ──────────────────────────────────────────── */
+        .video-toggle {
+            display: flex;
+            background: var(--surface-2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .video-toggle button {
+            flex: 1;
+            padding: .55rem;
+            font-size: .82rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            transition: all var(--transition);
+        }
+
+        .video-toggle button.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        /* ── File Drop Zone ──────────────────────────────────── */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition);
+            color: var(--text-dim);
+            font-size: .85rem;
+            position: relative;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(108, 99, 255, .06);
+        }
+
+        .drop-zone input {
+            display: none;
+        }
+
+        .drop-zone .icon-upload {
+            font-size: 2rem;
+            margin-bottom: .5rem;
+        }
+
+        .drop-zone .file-name {
+            color: var(--green);
+            font-weight: 600;
+            margin-top: .4rem;
+        }
+
+        /* ── Submit Button ───────────────────────────────────── */
+        .btn-submit {
+            width: 100%;
+            padding: .85rem;
+            font-size: .95rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            color: #fff;
+            letter-spacing: .3px;
+            transition: all var(--transition);
+            margin-top: .5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .btn-submit:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* ── Toast ────────────────────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: .9rem;
+            font-weight: 600;
+            color: #fff;
+            transform: translateY(120%);
+            opacity: 0;
+            transition: all .35s ease;
+            z-index: 999;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #059669, #34d399);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #dc2626, #f87171);
+        }
+
+        /* ── Table ────────────────────────────────────────────── */
+        .tools-list h2 {
+            margin-bottom: 1rem;
+        }
+
+        .tool-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .82rem;
+        }
+
+        .tool-table th {
+            text-align: left;
+            padding: .6rem .7rem;
+            color: var(--text-dim);
+            font-weight: 600;
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tool-table td {
+            padding: .65rem .7rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .tool-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .tool-table tr {
+            transition: background var(--transition);
+        }
+
+        .tool-table tr:hover {
+            background: rgba(108, 99, 255, .04);
+        }
+
+        /* ── Badges ────────────────────────────────────────────── */
+        .badge {
+            display: inline-block;
+            padding: .15rem .55rem;
+            border-radius: 6px;
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+
+        .badge-ready {
+            background: rgba(96, 165, 250, .15);
+            color: var(--blue);
+        }
+
+        .badge-posted {
+            background: rgba(52, 211, 153, .15);
+            color: var(--green);
+        }
+
+        .badge-failed {
+            background: rgba(248, 113, 113, .15);
+            color: var(--red);
+        }
+
+        .badge-draft {
+            background: rgba(136, 145, 165, .15);
+            color: var(--text-dim);
+        }
+
+        .badge-pending {
+            background: rgba(251, 191, 36, .12);
+            color: var(--amber);
+        }
+
+        .badge-success {
+            background: rgba(52, 211, 153, .15);
+            color: var(--green);
+        }
+
+        .badge-skipped {
+            background: rgba(136, 145, 165, .12);
+            color: var(--text-dim);
+        }
+
+        .platform-badges {
+            display: flex;
+            gap: .3rem;
+            flex-wrap: wrap;
+        }
+
+        .platform-badges .badge {
+            font-size: .65rem;
+            padding: .1rem .4rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-dim);
+        }
+
+        .empty-state .icon {
+            font-size: 2.5rem;
+            margin-bottom: .5rem;
+        }
+
+        /* ── Refresh button ──────────────────────────────────── */
+        .btn-refresh {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: .3rem .7rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: .8rem;
+            transition: all var(--transition);
+        }
+
+        .btn-refresh:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        /* ── Spinner ──────────────────────────────────────────── */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, .3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            vertical-align: middle;
+            margin-right: .4rem;
+        }
+
+        .spinner.sm {
+            width: 14px;
+            height: 14px;
+            border-width: 2px;
+            margin: 0;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ── Gate / Wake-up Overlay ──────────────────────────── -->
+    <div class="gate-overlay" id="gateOverlay">
+        <div class="gate-box">
+            <h2>ExecutionPosting</h2>
+            <p>Automated multi-platform AI tool distribution.<br>
+                The backend server may be sleeping — tap below to wake it up.</p>
+            <div class="gate-status" id="gateStatus">
+                <span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--text-dim);display:inline-block;"></span>
+                Checking server status...
+            </div>
+            <button class="gate-btn" id="gateBtn" onclick="wakeServer()">
+                I'm Human — Wake Up Server
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Main App ──────────────────────────────────────── -->
+    <div class="app" id="mainApp" style="display:none;">
+        <header>
+            <h1>ExecutionPosting</h1>
+            <p>Submit AI tools for automated multi-platform distribution</p>
+        </header>
+
+        <!-- Server status bar -->
+        <div class="server-bar online" id="serverBar">
+            <span class="dot"></span>
+            <span id="serverText">Server Online</span>
+        </div>
+
+        <div class="grid">
+            <!-- ── Left: Form ──────────────────────────────── -->
+            <div class="card" id="formCard">
+                <h2><span class="icon">+</span> New AI Tool</h2>
+                <form id="toolForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="tool_name">Tool Name *</label>
+                        <input type="text" id="tool_name" name="tool_name" required placeholder="e.g. ChatGPT" />
+                    </div>
+                    <div class="form-group">
+                        <label for="handle">Creator Handle</label>
+                        <input type="text" id="handle" name="handle" placeholder="@openai" />
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description"
+                            placeholder="A brief description of the tool..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="website">Website</label>
+                        <input type="url" id="website" name="website" placeholder="https://example.com" />
+                    </div>
+
+                    <!-- Video toggle -->
+                    <label
+                        style="font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem;display:block;">Video
+                        *</label>
+                    <div class="video-toggle">
+                        <button type="button" id="btnUrl" class="active" onclick="toggleVideo('url')">Paste
+                            URL</button>
+                        <button type="button" id="btnUpload" onclick="toggleVideo('upload')">Upload File</button>
+                    </div>
+
+                    <!-- URL input (default) -->
+                    <div class="form-group" id="urlGroup">
+                        <input type="text" id="video_url" placeholder="https://example.com/video.mp4" />
+                    </div>
+
+                    <!-- File upload (hidden by default) -->
+                    <div id="uploadGroup" style="display:none;">
+                        <div class="drop-zone" id="dropZone">
+                            <div class="icon-upload">&#8679;</div>
+                            <div>Drag & drop MP4 here or <strong>click to browse</strong></div>
+                            <div class="file-name" id="fileName"></div>
+                            <input type="file" id="video_file" accept="video/mp4" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-submit" id="submitBtn">
+                        Submit & Queue for Posting
+                    </button>
+                </form>
+            </div>
+
+            <!-- ── Right: Tools List ───────────────────────── -->
+            <div class="card tools-list">
+                <h2 style="justify-content:space-between;">
+                    <span><span class="icon">&#9776;</span> Queued Tools</span>
+                    <button class="btn-refresh" onclick="loadTools()">Refresh</button>
+                </h2>
+                <div id="toolsContainer">
+                    <div class="empty-state">
+                        <div class="icon">&#x1F4E6;</div>
+                        <p>No tools submitted yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Config — set your backend URL in this file -->
+    <script src="config.js"></script>
+
+    <script>
+        // ════════════════════════════════════════════════════════
+        // CONFIG — set your Render backend URL here
+        // ════════════════════════════════════════════════════════
+        const API_BASE = window.EXECUTION_API_URL || '';
+        // When deployed, this will be set via env/config.
+        // For local dev it defaults to '' (same-origin).
+
+        // ── Gate / Wake-up logic ──────────────────────────────
+        let serverOnline = false;
+
+        async function checkServer() {
+            try {
+                const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) });
+                if (r.ok) return true;
+            } catch {}
+            return false;
+        }
+
+        // Auto-check on page load
+        (async () => {
+            const gateStatus = document.getElementById('gateStatus');
+            const gateBtn = document.getElementById('gateBtn');
+
+            gateStatus.innerHTML = '<span class="spinner sm"></span> Checking server...';
+
+            const online = await checkServer();
+            if (online) {
+                enterApp();
+            } else {
+                gateStatus.innerHTML =
+                    '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server is sleeping';
+                gateBtn.disabled = false;
+            }
+        })();
+
+        async function wakeServer() {
+            const gateStatus = document.getElementById('gateStatus');
+            const gateBtn = document.getElementById('gateBtn');
+
+            gateBtn.disabled = true;
+            gateBtn.innerHTML = '<span class="spinner"></span> Waking up server...';
+            gateStatus.innerHTML =
+                '<span class="spinner sm"></span> Sending wake-up ping — this can take 30-60s on free tier...';
+
+            // Keep pinging every 5s for up to 90s
+            const start = Date.now();
+            const maxWait = 90000;
+
+            while (Date.now() - start < maxWait) {
+                const online = await checkServer();
+                if (online) {
+                    enterApp();
+                    return;
+                }
+                await new Promise(r => setTimeout(r, 5000));
+            }
+
+            // Timed out
+            gateStatus.innerHTML =
+                '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server did not respond. Try again.';
+            gateBtn.disabled = false;
+            gateBtn.innerHTML = "I'm Human — Wake Up Server";
+        }
+
+        function enterApp() {
+            serverOnline = true;
+            document.getElementById('gateOverlay').classList.add('hidden');
+            document.getElementById('mainApp').style.display = 'block';
+            updateServerBar(true);
+            loadTools();
+        }
+
+        // ── Server status bar (inside app) ────────────────────
+        function updateServerBar(online) {
+            const bar = document.getElementById('serverBar');
+            const txt = document.getElementById('serverText');
+            if (online) {
+                bar.className = 'server-bar online';
+                txt.textContent = 'Server Online';
+            } else {
+                bar.className = 'server-bar sleeping';
+                txt.textContent = 'Server Sleeping — requests may fail';
+            }
+        }
+
+        // Periodic health check (every 60s once in app)
+        setInterval(async () => {
+            if (!serverOnline) return;
+            const ok = await checkServer();
+            updateServerBar(ok);
+        }, 60000);
+
+        // ── Video toggle ──────────────────────────────────────
+        function toggleVideo(mode) {
+            document.getElementById('btnUrl').classList.toggle('active', mode === 'url');
+            document.getElementById('btnUpload').classList.toggle('active', mode === 'upload');
+            document.getElementById('urlGroup').style.display = mode === 'url' ? 'block' : 'none';
+            document.getElementById('uploadGroup').style.display = mode === 'upload' ? 'block' : 'none';
+            if (mode === 'url') document.getElementById('video_file').value = '';
+            if (mode === 'upload') document.getElementById('video_url').value = '';
+        }
+
+        // ── Drop zone ─────────────────────────────────────────
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('video_file');
+        const fileNameEl = document.getElementById('fileName');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                fileNameEl.textContent = e.dataTransfer.files[0].name;
+            }
+        });
+        fileInput.addEventListener('change', () => {
+            fileNameEl.textContent = fileInput.files.length ? fileInput.files[0].name : '';
+        });
+
+        // ── Toast ─────────────────────────────────────────────
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3500);
+        }
+
+        // ── Submit form ───────────────────────────────────────
+        document.getElementById('toolForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Submitting...';
+
+            try {
+                const fd = new FormData();
+
+                const toolName = document.getElementById('tool_name').value.trim();
+                if (!toolName) throw new Error('Tool name is required.');
+                fd.append('tool_name', toolName);
+
+                const handle = document.getElementById('handle').value.trim();
+                if (handle) fd.append('handle', handle);
+
+                const desc = document.getElementById('description').value.trim();
+                if (desc) fd.append('description', desc);
+
+                const website = document.getElementById('website').value.trim();
+                if (website) fd.append('website', website);
+
+                const videoUrl = document.getElementById('video_url').value.trim();
+                const videoFile = document.getElementById('video_file').files[0];
+
+                if (videoUrl) {
+                    fd.append('video_url', videoUrl);
+                } else if (videoFile) {
+                    fd.append('video_file', videoFile);
+                } else {
+                    throw new Error('Provide a video URL or upload a video file.');
+                }
+
+                const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.detail || 'Submission failed');
+
+                showToast(`"${data.tool_name}" queued for posting!`);
+                e.target.reset();
+                fileNameEl.textContent = '';
+                toggleVideo('url');
+                loadTools();
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Submit & Queue for Posting';
+            }
+        });
+
+        // ── Load tools list ───────────────────────────────────
+        async function loadTools() {
+            try {
+                const res = await fetch(`${API_BASE}/api/tools`);
+                const tools = await res.json();
+                const container = document.getElementById('toolsContainer');
+
+                if (!tools.length) {
+                    container.innerHTML = `<div class="empty-state"><div class="icon">&#x1F4E6;</div><p>No tools submitted yet</p></div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table class="tool-table">
+                        <thead><tr>
+                            <th>Tool</th>
+                            <th>Status</th>
+                            <th>Platforms</th>
+                            <th>Date</th>
+                        </tr></thead>
+                        <tbody>
+                            ${tools.map(t => `
+                                <tr>
+                                    <td>
+                                        <strong>${esc(t.tool_name)}</strong>
+                                        ${t.website ? `<br><a href="${esc(t.website)}" target="_blank" style="color:var(--accent);font-size:.75rem;text-decoration:none;">${esc(t.website)}</a>` : ''}
+                                    </td>
+                                    <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>
+                                    <td>
+                                        <div class="platform-badges">
+                                            ${platformBadge('LI', t.linkedin_status)}
+                                            ${platformBadge('IG', t.instagram_status)}
+                                            ${platformBadge('YT', t.youtube_status)}
+                                            ${platformBadge('X', t.x_status)}
+                                        </div>
+                                    </td>
+                                    <td style="font-size:.78rem;color:var(--text-dim);white-space:nowrap;">
+                                        ${t.posted_at ? new Date(t.posted_at).toLocaleDateString() : new Date(t.created_at).toLocaleDateString()}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                console.error('Failed to load tools:', err);
+            }
+        }
+
+        function platformBadge(label, status) {
+            const cls = status === 'SUCCESS' ? 'success'
+                : status === 'FAILED' ? 'failed'
+                    : status === 'SKIPPED' ? 'skipped'
+                        : 'pending';
+            return `<span class="badge badge-${cls}">${label}</span>`;
+        }
+
+        function esc(s) {
+            if (!s) return '';
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadTools, 30000);
+    </script>
+</body>
+
+</html>
