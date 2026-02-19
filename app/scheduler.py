@@ -234,7 +234,12 @@ scheduler = BackgroundScheduler()
 
 
 def start_scheduler() -> None:
-    """Register the polling job and start the scheduler."""
+    """Register the polling job and start the scheduler.
+
+    Also runs ``check_and_post()`` once immediately on startup so that any
+    overdue scheduled posts (missed while the server was sleeping) are
+    processed right away instead of waiting for the first interval tick.
+    """
     scheduler.add_job(
         check_and_post,
         "interval",
@@ -247,6 +252,13 @@ def start_scheduler() -> None:
         "Scheduler started — polling every %d minute(s).",
         settings.SCHEDULER_INTERVAL_MINUTES,
     )
+
+    # Immediately process any overdue / waiting posts from while we slept
+    try:
+        logger.info("Running startup catch-up check for overdue posts...")
+        check_and_post()
+    except Exception as exc:
+        logger.exception("Startup catch-up failed: %s", exc)
 
 
 def stop_scheduler() -> None:
