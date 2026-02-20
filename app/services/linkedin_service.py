@@ -7,17 +7,19 @@ Supports TWO modes (auto-detected from config):
   • **Personal profile** — requires ``LINKEDIN_PERSON_URN`` + a token with
     ``w_member_social`` ("Share on LinkedIn" product).
 
-Flow:
-  1. Register a video upload.
-  2. Upload the video binary.
-  3. Wait for the asset to finish processing.
-  4. Create a post referencing the video.
+Flow (using the versioned REST API — ``/rest/*``):
+  1. Initialize video upload via ``/rest/videos?action=initializeUpload``.
+  2. Upload each binary chunk to the returned URL(s).
+  3. Finalize the upload via ``/rest/videos?action=finalizeUpload``.
+  4. Poll the video status until ``AVAILABLE``.
+  5. Create a post via ``/rest/posts``.
 
 Ref: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/videos-api
 """
 
 import os
 import time
+from urllib.parse import quote
 
 import requests
 
@@ -26,7 +28,11 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-V2_URL = "https://api.linkedin.com/v2"
+REST_URL = "https://api.linkedin.com/rest"
+LINKEDIN_VERSION = "202602"
+
+
+# ── Helpers ─────────────────────────────────────────────────────────
 
 
 def _author_urn() -> str:
@@ -37,38 +43,45 @@ def _author_urn() -> str:
     if settings.LINKEDIN_ORG_ID:
         return f"urn:li:organization:{settings.LINKEDIN_ORG_ID}"
     if settings.LINKEDIN_PERSON_URN:
-        # Can be full URN ("urn:li:person:xxxx") or just the ID
         urn = settings.LINKEDIN_PERSON_URN
         if not urn.startswith("urn:"):
             urn = f"urn:li:person:{urn}"
         return urn
-    raise RuntimeError("No LinkedIn author configured (need LINKEDIN_ORG_ID or LINKEDIN_PERSON_URN)")
+    raise RuntimeError(
+        "No LinkedIn author configured (need LINKEDIN_ORG_ID or LINKEDIN_PERSON_URN)"
+    )
 
 
-def _auth_headers() -> dict[str, str]:
-    """Return authorization headers for LinkedIn v2 API."""
+def _api_headers(content_type: str = "application/json") -> dict[str, str]:
+    """Return authorization + versioning headers for the LinkedIn REST API."""
     return {
         "Authorization": f"Bearer {settings.LINKEDIN_ACCESS_TOKEN}",
+        "LinkedIn-Version": LINKEDIN_VERSION,
         "X-Restli-Protocol-Version": "2.0.0",
+        "Content-Type": content_type,
     }
 
 
-def _register_upload(file_size: int) -> tuple[str, str]:
-    """Register a video upload and return (upload_url, video_urn)."""
+# ── Video upload (REST API) ────────────────────────────────────────
+
+
+def _init_upload(file_size: int) -> dict:
+    """Initialize a video upload and return the full response value."""
     owner = _author_urn()
 
     payload = {
         "initializeUploadRequest": {
             "owner": owner,
             "fileSizeBytes": file_size,
+            "uploadCaptions": False,
+            "uploadThumbnail": False,
         }
     }
 
-    url = f"{V2_URL}/videos?action=initializeUpload"
     resp = requests.post(
-        url,
+        f"{REST_URL}/videos?action=initializeUpload",
         json=payload,
-        headers={**_auth_headers(), "Content-Type": "application/json"},
+        headers=_api_headers(),
         timeout=30,
     )
 
@@ -79,84 +92,162 @@ def _register_upload(file_size: int) -> tuple[str, str]:
         resp.raise_for_status()
 
     data = resp.json()["value"]
-    upload_url: str = data["uploadInstructions"][0]["uploadUrl"]
-    video_urn: str = data["video"]
-    logger.info("LinkedIn: video registered — urn=%s (owner=%s)", video_urn, owner)
-    return upload_url, video_urn
+    logger.info(
+        "LinkedIn: video initialized — %s (owner=%s, parts=%d)",
+        data["video"],
+        owner,
+        len(data.get("uploadInstructions", [])),
+    )
+    return data
 
 
-def _upload_binary(upload_url: str, video_path: str) -> None:
-    """PUT the raw video bytes to the upload URL."""
-    headers = {
-        **_auth_headers(),
-        "Content-Type": "application/octet-stream",
-    }
+def _upload_chunks(video_path: str, init_data: dict) -> list[str]:
+    """Upload binary chunks and return the list of ETags."""
     with open(video_path, "rb") as fh:
-        resp = requests.put(upload_url, data=fh, headers=headers, timeout=300)
+        video_bytes = fh.read()
+
+    etags: list[str] = []
+    instructions = init_data.get("uploadInstructions", [])
+
+    for idx, instr in enumerate(instructions):
+        upload_url = instr["uploadUrl"]
+        first_byte = instr.get("firstByte", 0)
+        last_byte = instr.get("lastByte", len(video_bytes) - 1)
+        chunk = video_bytes[first_byte : last_byte + 1]
+
+        logger.info(
+            "LinkedIn: uploading part %d/%d (%s bytes)",
+            idx + 1,
+            len(instructions),
+            f"{len(chunk):,}",
+        )
+
+        resp = requests.put(
+            upload_url,
+            data=chunk,
+            headers={"Content-Type": "application/octet-stream"},
+            timeout=300,
+        )
+
+        if not resp.ok:
+            logger.error(
+                "LinkedIn chunk upload failed (part %d): %d %s",
+                idx + 1,
+                resp.status_code,
+                resp.text[:500],
+            )
+            resp.raise_for_status()
+
+        etag = resp.headers.get("ETag", "")
+        if etag:
+            etags.append(etag)
+
+    return etags
+
+
+def _finalize_upload(video_urn: str, upload_token: str, etags: list[str]) -> None:
+    """Finalize a multi-part video upload."""
+    payload = {
+        "finalizeUploadRequest": {
+            "video": video_urn,
+            "uploadToken": upload_token,
+            "uploadedPartIds": etags,
+        }
+    }
+    resp = requests.post(
+        f"{REST_URL}/videos?action=finalizeUpload",
+        json=payload,
+        headers=_api_headers(),
+        timeout=30,
+    )
     if not resp.ok:
         logger.error(
-            "LinkedIn binary upload failed: %d %s", resp.status_code, resp.text[:500]
+            "LinkedIn video finalize failed: %d %s",
+            resp.status_code,
+            resp.text[:500],
         )
-    resp.raise_for_status()
+        resp.raise_for_status()
+    logger.info("LinkedIn: video upload finalized.")
 
 
 def _wait_for_processing(video_urn: str, max_wait: int = 300) -> bool:
-    """Poll until the video is ``AVAILABLE`` or timeout."""
-    url = f"{V2_URL}/videos/{video_urn}"
+    """Poll ``/rest/videos/{urn}`` until the video is ``AVAILABLE``."""
+    encoded_urn = quote(video_urn, safe="")
+    url = f"{REST_URL}/videos/{encoded_urn}"
+    headers = {
+        "Authorization": f"Bearer {settings.LINKEDIN_ACCESS_TOKEN}",
+        "LinkedIn-Version": LINKEDIN_VERSION,
+        "X-Restli-Protocol-Version": "2.0.0",
+    }
+
     deadline = time.time() + max_wait
     while time.time() < deadline:
-        resp = requests.get(url, headers=_auth_headers(), timeout=15)
+        resp = requests.get(url, headers=headers, timeout=15)
         if resp.ok:
-            status = resp.json().get("status")
+            status = resp.json().get("status", "unknown")
             logger.debug("LinkedIn video status: %s", status)
             if status == "AVAILABLE":
                 return True
-            if status in ("FAILED", "DELETED"):
-                logger.error("LinkedIn: video processing ended with status=%s", status)
+            if status in ("FAILED", "DELETED", "PROCESSING_FAILED"):
+                logger.error(
+                    "LinkedIn: video processing ended with status=%s", status
+                )
                 return False
         else:
-            logger.warning("LinkedIn: video status poll %d %s",
-                           resp.status_code, resp.text[:200])
+            logger.warning(
+                "LinkedIn: video status poll %d %s",
+                resp.status_code,
+                resp.text[:200],
+            )
         time.sleep(10)
     return False
 
 
+# ── Post creation (REST API) ──────────────────────────────────────
+
+
 def _create_post(video_urn: str, caption: str) -> None:
-    """Create a UGC post referencing the video asset."""
+    """Create a post referencing the uploaded video via ``/rest/posts``."""
     author = _author_urn()
 
     payload = {
         "author": author,
-        "lifecycleState": "PUBLISHED",
-        "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": caption},
-                "shareMediaCategory": "VIDEO",
-                "media": [
-                    {
-                        "status": "READY",
-                        "media": video_urn,
-                    }
-                ],
+        "commentary": caption,
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": [],
+        },
+        "content": {
+            "media": {
+                "id": video_urn,
             }
         },
-        "visibility": {
-            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-        },
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": False,
     }
+
     resp = requests.post(
-        f"{V2_URL}/ugcPosts",
+        f"{REST_URL}/posts",
         json=payload,
-        headers={**_auth_headers(), "Content-Type": "application/json"},
+        headers=_api_headers(),
         timeout=30,
     )
 
     if not resp.ok:
         logger.error(
-            "LinkedIn post creation failed: %d %s", resp.status_code, resp.text[:500]
+            "LinkedIn post creation failed: %d %s",
+            resp.status_code,
+            resp.text[:500],
         )
-    resp.raise_for_status()
-    logger.info("LinkedIn: post published — %s", resp.headers.get("x-restli-id", "ok"))
+        resp.raise_for_status()
+
+    post_id = resp.headers.get("x-restli-id", "ok")
+    logger.info("LinkedIn: post published — %s", post_id)
+
+
+# ── Public entry point ─────────────────────────────────────────────
 
 
 def post_to_linkedin(caption: str, video_path: str) -> bool:
@@ -175,12 +266,20 @@ def post_to_linkedin(caption: str, video_path: str) -> bool:
     try:
         file_size = os.path.getsize(video_path)
 
-        logger.info("LinkedIn: registering upload (%s bytes) as %s...",
-                     f"{file_size:,}", _author_urn())
-        upload_url, video_urn = _register_upload(file_size)
+        logger.info(
+            "LinkedIn: initializing upload (%s bytes) as %s...",
+            f"{file_size:,}",
+            _author_urn(),
+        )
+        init_data = _init_upload(file_size)
+        video_urn = init_data["video"]
+        upload_token = init_data.get("uploadToken", "")
 
-        logger.info("LinkedIn: uploading video binary...")
-        _upload_binary(upload_url, video_path)
+        logger.info("LinkedIn: uploading video chunks...")
+        etags = _upload_chunks(video_path, init_data)
+
+        logger.info("LinkedIn: finalizing upload...")
+        _finalize_upload(video_urn, upload_token, etags)
 
         logger.info("LinkedIn: waiting for processing...")
         if not _wait_for_processing(video_urn):
