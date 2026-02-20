@@ -56,6 +56,8 @@ def _init_upload(file_size: int) -> str:
         auth=_oauth(),
         timeout=30,
     )
+    if not resp.ok:
+        logger.error("X INIT failed: %d %s", resp.status_code, resp.text[:500])
     resp.raise_for_status()
     media_id: str = str(resp.json()["media_id"])
     logger.info("X: INIT complete — media_id=%s", media_id)
@@ -97,6 +99,8 @@ def _finalize(media_id: str) -> Optional[dict]:
         auth=_oauth(),
         timeout=30,
     )
+    if not resp.ok:
+        logger.error("X FINALIZE failed: %d %s", resp.status_code, resp.text[:500])
     resp.raise_for_status()
     return resp.json().get("processing_info")
 
@@ -140,6 +144,10 @@ def _create_tweet(caption: str, media_id: str) -> None:
         auth=_oauth(),
         timeout=30,
     )
+    if not resp.ok:
+        logger.error(
+            "X tweet creation failed: %d %s", resp.status_code, resp.text[:500]
+        )
     resp.raise_for_status()
     tweet_id = resp.json().get("data", {}).get("id", "unknown")
     logger.info("X: tweet published — id=%s", tweet_id)
@@ -174,5 +182,8 @@ def post_to_x(caption: str, video_path: str) -> bool:
         return True
 
     except requests.RequestException as exc:
-        logger.error("X posting failed: %s", exc)
+        resp_text = ""
+        if hasattr(exc, "response") and exc.response is not None:
+            resp_text = exc.response.text[:500]
+        logger.error("X posting failed: %s — response: %s", exc, resp_text)
         return False
