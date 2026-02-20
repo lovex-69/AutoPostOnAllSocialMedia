@@ -119,7 +119,7 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
         success_count = 0
 
         # LinkedIn
-        if settings.LINKEDIN_ACCESS_TOKEN and settings.LINKEDIN_ORG_ID:
+        if settings.LINKEDIN_ACCESS_TOKEN and (settings.LINKEDIN_ORG_ID or settings.LINKEDIN_PERSON_URN):
             linkedin_ok = _post_linkedin(captions["linkedin"], video_path)
             tool.linkedin_status = "SUCCESS" if linkedin_ok else "FAILED"
             if linkedin_ok:

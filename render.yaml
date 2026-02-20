@@ -21,6 +21,8 @@ services:
         sync: false
       - key: LINKEDIN_ORG_ID
         sync: false
+      - key: LINKEDIN_PERSON_URN
+        sync: false
       - key: X_API_KEY
         sync: false
       - key: X_API_SECRET

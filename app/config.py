@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # ── LinkedIn (optional until configured) ──────────────────────────────
     LINKEDIN_ACCESS_TOKEN: Optional[str] = None
     LINKEDIN_ORG_ID: Optional[str] = None
+    LINKEDIN_PERSON_URN: Optional[str] = None  # e.g. "urn:li:person:AbC123"
 
     # ── Meta / Instagram (optional until configured) ──────────────────────
     META_ACCESS_TOKEN: Optional[str] = None
