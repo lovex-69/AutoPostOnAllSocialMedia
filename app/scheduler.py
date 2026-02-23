@@ -23,6 +23,7 @@ from app.services.caption_generator import generate_captions
 from app.services.video_downloader import cleanup_video, download_video
 from app.services.linkedin_service import post_to_linkedin
 from app.services.instagram_service import post_to_instagram
+from app.services.facebook_service import post_to_facebook
 from app.services.youtube_service import post_to_youtube
 from app.services.x_service import post_to_x
 from app.utils.logger import get_logger
@@ -70,6 +71,7 @@ def retry(max_attempts: int = 3, backoff: int = 2) -> Callable:
 # Wrap each platform call with retry
 _post_linkedin = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_linkedin)
 _post_instagram = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_instagram)
+_post_facebook = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_facebook)
 _post_youtube = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_youtube)
 _post_x = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_x)
 
@@ -138,6 +140,16 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.instagram_status = "SKIPPED"
             logger.info("Instagram: skipped (credentials not configured).")
 
+        # Facebook Reels  (uses local video path)
+        if settings.META_ACCESS_TOKEN and settings.FACEBOOK_PAGE_ID:
+            facebook_ok = _post_facebook(captions["facebook"], video_path)
+            tool.facebook_status = "SUCCESS" if facebook_ok else "FAILED"
+            if facebook_ok:
+                success_count += 1
+        else:
+            tool.facebook_status = "SKIPPED"
+            logger.info("Facebook: skipped (credentials not configured).")
+
         # YouTube
         if settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_CLIENT_SECRET and settings.YOUTUBE_REFRESH_TOKEN:
             youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], video_path)
@@ -161,7 +173,7 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
         # 4. Update overall status ─────────────────────────────────────────
         attempted = sum(
             1 for s in (tool.linkedin_status, tool.instagram_status,
-                         tool.youtube_status, tool.x_status)
+                         tool.facebook_status, tool.youtube_status, tool.x_status)
             if s != "SKIPPED"
         )
 
@@ -170,7 +182,7 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.posted_at = datetime.now(timezone.utc)
             logger.info(
                 "Tool %d posted to %d/%d platforms (%d skipped).",
-                tool.id, success_count, attempted, 4 - attempted,
+                tool.id, success_count, attempted, 5 - attempted,
             )
         elif attempted == 0:
             tool.status = "FAILED"

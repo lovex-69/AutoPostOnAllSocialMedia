@@ -27,9 +27,10 @@ class AITool(Base):
     # Overall lifecycle status: DRAFT | READY | POSTED | FAILED
     status: str = Column(String(20), default="DRAFT", nullable=False)
 
-    # ── Per-platform status (PENDING | SUCCESS | FAILED) ──────────────────
+    # ── Per-platform status (PENDING | SUCCESS | FAILED | SKIPPED) ─────────
     linkedin_status: str = Column(String(20), default="PENDING", nullable=False)
     instagram_status: str = Column(String(20), default="PENDING", nullable=False)
+    facebook_status: str = Column(String(20), default="PENDING", nullable=False)
     youtube_status: str = Column(String(20), default="PENDING", nullable=False)
     x_status: str = Column(String(20), default="PENDING", nullable=False)
 

@@ -69,11 +69,20 @@ def generate_captions(
         youtube_parts.append(site)
     youtube_caption = "\n\n".join(youtube_parts)
 
+    # ── Facebook ──────────────────────────────────────────────────────────
+    facebook_parts = [headline]
+    if desc:
+        facebook_parts.append(desc)
+    if site:
+        facebook_parts.append(site)
+    facebook_caption = "\n\n".join(facebook_parts)
+
     logger.info("Captions built from user input for '%s'", tool_name)
 
     return {
         "x": x_caption,
         "linkedin": linkedin_caption,
         "instagram": instagram_caption,
+        "facebook": facebook_caption,
         "youtube": youtube_caption,
     }

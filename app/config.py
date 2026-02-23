@@ -23,9 +23,10 @@ class Settings(BaseSettings):
     LINKEDIN_ORG_ID: Optional[str] = None
     LINKEDIN_PERSON_URN: Optional[str] = None  # e.g. "urn:li:person:AbC123"
 
-    # ── Meta / Instagram (optional until configured) ──────────────────────
+    # ── Meta / Instagram / Facebook (optional until configured) ────────────
     META_ACCESS_TOKEN: Optional[str] = None
     INSTAGRAM_BUSINESS_ID: Optional[str] = None
+    FACEBOOK_PAGE_ID: Optional[str] = None
 
     # ── YouTube (optional until configured) ───────────────────────────────
     YOUTUBE_CLIENT_ID: Optional[str] = None
