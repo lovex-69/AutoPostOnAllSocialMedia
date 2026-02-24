@@ -5,8 +5,9 @@ copyright / Content ID strikes while keeping audience retention HIGH.
 Strategy:
   1. Strip ORIGINAL audio (copyrighted → Content ID trigger)
   2. Replace with royalty-free background music:
-     a) User-provided MP3s from ``music/`` folder (preferred — best quality)
-     b) Auto-generated ambient lo-fi beat via FFmpeg synthesis (fallback)
+     a) Supabase Storage bucket (preferred — persists across deploys, works 24/7)
+     b) Local ``music/`` folder (development fallback)
+     c) Auto-generated ambient lo-fi beat via FFmpeg synthesis (last resort)
   3. Add branded text overlay (makes content "transformative" / fair-use)
   4. Slight speed adjustment (1.05×) — shifts video fingerprint
   5. Re-encode with unique params — further differentiates
@@ -28,14 +29,21 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import requests
+
+from app.config import settings
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 _TRANSFORM_DIR = Path(tempfile.gettempdir()) / "execution_posting_yt_transform"
 
-# User-provided royalty-free music directory
+# Local fallback music directory
 _MUSIC_DIR = Path(__file__).resolve().parent.parent.parent / "music"
+
+# Cached Supabase music tracks (downloaded to temp dir)
+_MUSIC_CACHE_DIR = Path(tempfile.gettempdir()) / "execution_posting_music_cache"
+_supabase_track_list: list[dict] | None = None  # cached file list
 
 
 def _ffmpeg_available() -> bool:
@@ -45,27 +53,151 @@ def _ffmpeg_available() -> bool:
 
 # ── Music source selection ────────────────────────────────────────────────────
 
-def _get_user_music_track() -> str | None:
-    """Pick a random track from the ``music/`` folder.
+_AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"}
 
-    Supports MP3, WAV, OGG, M4A, FLAC, AAC formats.
-    Returns ``None`` if no tracks are available.
+
+def _list_supabase_tracks() -> list[dict]:
+    """List audio files in the Supabase Storage music bucket.
+
+    Returns a list of dicts with ``name`` keys.  Results are cached for the
+    lifetime of the process to avoid repeated API calls.
     """
-    if not _MUSIC_DIR.exists():
+    global _supabase_track_list
+
+    if _supabase_track_list is not None:
+        return _supabase_track_list
+
+    url = settings.SUPABASE_URL
+    key = settings.SUPABASE_ANON_KEY
+    bucket = settings.SUPABASE_MUSIC_BUCKET
+
+    if not url or not key:
+        _supabase_track_list = []
+        return _supabase_track_list
+
+    try:
+        # Supabase Storage REST API: POST /storage/v1/object/list/{bucket}
+        resp = requests.post(
+            f"{url}/storage/v1/object/list/{bucket}",
+            json={"prefix": "", "limit": 100, "offset": 0},
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+            },
+            timeout=15,
+        )
+        if not resp.ok:
+            logger.warning("Supabase music list failed (%d): %s", resp.status_code, resp.text[:200])
+            _supabase_track_list = []
+            return _supabase_track_list
+
+        files = resp.json()
+        tracks = [
+            f for f in files
+            if isinstance(f, dict)
+            and f.get("name")
+            and Path(f["name"]).suffix.lower() in _AUDIO_EXTENSIONS
+        ]
+        _supabase_track_list = tracks
+        logger.info("Supabase music bucket: found %d track(s).", len(tracks))
+        return tracks
+
+    except Exception as exc:
+        logger.warning("Supabase music list error: %s", exc)
+        _supabase_track_list = []
+        return _supabase_track_list
+
+
+def _download_supabase_track(file_name: str) -> str | None:
+    """Download a track from Supabase Storage to a local cache.
+
+    Returns the cached file path, or None on failure.  Already-cached files
+    are returned immediately without re-downloading.
+    """
+    _MUSIC_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cached_path = _MUSIC_CACHE_DIR / file_name
+
+    # Return cached version if it exists and has content
+    if cached_path.exists() and cached_path.stat().st_size > 0:
+        logger.debug("Music cache hit: %s", file_name)
+        return str(cached_path)
+
+    url = settings.SUPABASE_URL
+    key = settings.SUPABASE_ANON_KEY
+    bucket = settings.SUPABASE_MUSIC_BUCKET
+
+    try:
+        # Public download URL for Supabase Storage
+        download_url = f"{url}/storage/v1/object/public/{bucket}/{file_name}"
+        resp = requests.get(download_url, timeout=60, stream=True)
+
+        if not resp.ok:
+            # Try authenticated download if public access is off
+            download_url = f"{url}/storage/v1/object/{bucket}/{file_name}"
+            resp = requests.get(
+                download_url,
+                headers={
+                    "apikey": key,
+                    "Authorization": f"Bearer {key}",
+                },
+                timeout=60,
+                stream=True,
+            )
+
+        if not resp.ok:
+            logger.warning("Supabase music download failed (%d): %s", resp.status_code, file_name)
+            return None
+
+        with open(cached_path, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=8192):
+                fh.write(chunk)
+
+        logger.info("Downloaded music from Supabase: %s (%s bytes)",
+                     file_name, f"{cached_path.stat().st_size:,}")
+        return str(cached_path)
+
+    except Exception as exc:
+        logger.warning("Supabase music download error for %s: %s", file_name, exc)
+        # Cleanup partial download
+        if cached_path.exists():
+            cached_path.unlink(missing_ok=True)
         return None
 
-    extensions = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"}
-    tracks = [
-        f for f in _MUSIC_DIR.iterdir()
-        if f.is_file() and f.suffix.lower() in extensions
-    ]
 
-    if not tracks:
-        return None
+def _get_music_track() -> tuple[str | None, str]:
+    """Find a royalty-free music track.  Priority order:
 
-    chosen = random.choice(tracks)
-    logger.info("Music: selected user track '%s' from %d available.", chosen.name, len(tracks))
-    return str(chosen)
+    1. **Supabase Storage** — persists across deploys, works 24/7
+    2. **Local music/ folder** — development convenience
+    3. Returns (None, "none") — caller should generate ambient or go silent
+
+    Returns:
+        Tuple of (file_path_or_None, source_label).
+    """
+    # ── 1. Supabase Storage ───────────────────────────────────────────────
+    tracks = _list_supabase_tracks()
+    if tracks:
+        chosen = random.choice(tracks)
+        file_name = chosen["name"]
+        local_path = _download_supabase_track(file_name)
+        if local_path:
+            return local_path, "supabase"
+        logger.warning("Supabase track download failed, trying local fallback.")
+
+    # ── 2. Local music/ folder ────────────────────────────────────────────
+    if _MUSIC_DIR.exists():
+        local_tracks = [
+            f for f in _MUSIC_DIR.iterdir()
+            if f.is_file() and f.suffix.lower() in _AUDIO_EXTENSIONS
+        ]
+        if local_tracks:
+            chosen_local = random.choice(local_tracks)
+            logger.info("Music: using local track '%s' from %d available.",
+                         chosen_local.name, len(local_tracks))
+            return str(chosen_local), "local"
+
+    # ── 3. No music available ─────────────────────────────────────────────
+    return None, "none"
 
 
 def _generate_ambient_track(duration_secs: float) -> str | None:
@@ -210,12 +342,13 @@ def transform_for_youtube(
     adjusted_duration = duration / speed_factor  # after speed-up
 
     # ── Find background music ─────────────────────────────────────────────
-    music_path = _get_user_music_track()
-    music_source = "user"
+    music_path, music_source = _get_music_track()
 
     if not music_path:
+        # Last resort: generate ambient beat
         music_path = _generate_ambient_track(adjusted_duration)
-        music_source = "generated"
+        if music_path:
+            music_source = "generated"
 
     has_music = music_path is not None
     if has_music:

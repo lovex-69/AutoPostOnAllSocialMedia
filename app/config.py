@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     YOUTUBE_REFRESH_TOKEN: Optional[str] = None
     YOUTUBE_TRANSFORM_VIDEO: bool = True  # Transform video to avoid Content ID
 
+    # ── Supabase Storage (for royalty-free music) ─────────────────────────
+    SUPABASE_URL: Optional[str] = None       # e.g. https://xxxx.supabase.co
+    SUPABASE_ANON_KEY: Optional[str] = None  # public anon key
+    SUPABASE_MUSIC_BUCKET: str = "music"      # bucket name
+
     # ── X / Twitter (optional until configured) ──────────────────────────
     X_API_KEY: Optional[str] = None
     X_API_SECRET: Optional[str] = None
