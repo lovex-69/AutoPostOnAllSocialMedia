@@ -31,8 +31,11 @@ if settings.GEMINI_API_KEY:
 # ── Gemini-powered captions ──────────────────────────────────────────────────
 
 _PROMPT_TEMPLATE = """\
-You are a social-media copywriter for a tech brand called "Execution AI".
-Generate captions for an AI tool being showcased in a short-form video post.
+You are an elite social-media growth strategist for "Execution AI", a brand that
+discovers and showcases the most powerful AI tools via short-form video content.
+
+Your ONLY goal: generate captions that MAXIMIZE reach, engagement, saves, shares,
+and follower growth on each platform.
 
 Tool info:
 - Name: {tool_name}
@@ -40,15 +43,59 @@ Tool info:
 - Website: {website}
 - Creator/Handle: {handle}
 
-Generate FIVE separate captions, one for each platform. Each caption MUST be
-optimised for that platform's culture, length limits, and audience.
+Generate FIVE separate captions, one for each platform. Apply these growth tactics:
 
-Rules:
-1. **X / Twitter**: Max 270 chars. Punchy, hook-driven. 2-3 relevant hashtags. Include website link if provided.
-2. **LinkedIn**: Professional, insightful, 3-5 short paragraphs. Use line breaks. 3-5 hashtags at the end. Include website link if provided.
-3. **Instagram**: Engaging, emoji-rich, storytelling tone. 8-15 hashtags at the end. Say "Link in bio" instead of the URL.
-4. **Facebook**: Conversational, shareable, 2-3 paragraphs. 3-5 hashtags. Include website link if provided.
-5. **YouTube**: Title-worthy first line, then a description. Include website link and relevant tags as hashtags.
+**UNIVERSAL RULES (apply to ALL platforms):**
+- Start with a PATTERN-INTERRUPT hook (question, bold claim, or shocking stat)
+- Include a clear CTA (save, share, follow, comment, tag a friend)
+- Use curiosity gaps to stop the scroll
+- Write like you're talking to a friend, not a brand
+- Reference the tool's BENEFIT, not just features
+- End with a reason to follow ("Follow @execution.ai for daily AI tools")
+
+**PLATFORM RULES:**
+
+1. **X / Twitter** (max 270 chars):
+   - Open with a bold hook: "This AI tool is insane 🤯" or "Stop scrolling."
+   - Super punchy, 1-2 sentences max
+   - 2-3 viral hashtags (#AI #AITools #Tech)
+   - Include website link if provided
+   - End with "RT if you agree" or "Bookmark this 🔖"
+
+2. **LinkedIn** (3-5 short paragraphs):
+   - Start with a HOOK line that gets clicks on "...see more"
+   - Professional but bold — thought-leadership tone
+   - Add a personal/industry insight about WHY this tool matters
+   - Include line breaks for readability
+   - CTA: "Follow Execution AI for daily AI tool spotlights"
+   - 5-8 hashtags at end: #AI #ArtificialIntelligence #Innovation #Tech #Productivity #AITools #FutureTech #Automation
+
+3. **Instagram** (Reels-optimized):
+   - Hook in first line (this shows in feed preview)
+   - Emoji-rich, high energy, storytelling
+   - Include "Save this for later 🔖" and "Share with a friend who needs this"
+   - Say "Link in bio 🔗" instead of URL
+   - "Follow @execution.ai for daily AI tools 🚀"
+   - 20-30 hashtags (mix of big + niche): #AI #AITools #ArtificialIntelligence #Tech
+     #Innovation #Reels #Viral #Trending #AIReels #TechReels #ProductivityHacks
+     #FutureTech #MachineLearning #Automation #DigitalMarketing #Startup #Entrepreneur
+     #TechTok #AIApp #AppReview #ToolReview #GrowthHacking #SaaS #NoCode
+
+4. **Facebook** (Reels-optimized):
+   - Conversational hook that makes people stop scrolling
+   - 2-3 short paragraphs with emojis
+   - CTA: "Share this with someone who needs it 👇"
+   - "Follow our page for daily AI discoveries!"
+   - 5-8 hashtags
+   - Include website link if provided
+
+5. **YouTube** (Shorts-optimized):
+   - First line = compelling title (this becomes visible in search)
+   - Description: SEO-rich, include what the tool does
+   - Add #Shorts as FIRST hashtag
+   - Include website link
+   - "Subscribe for daily AI tool reviews! 🔔"
+   - Tags: #Shorts #AI #AITools #Tech #Innovation #YouTubeShorts
 
 IMPORTANT: Return ONLY a valid JSON object with exactly these keys:
 {{"x": "...", "linkedin": "...", "instagram": "...", "facebook": "...", "youtube": "..."}}
@@ -113,55 +160,81 @@ def _fallback_captions(
     website: Optional[str],
     handle: Optional[str],
 ) -> Dict[str, str]:
-    """Build simple template captions when Gemini is unavailable."""
-    desc = description or ""
+    """Build engagement-optimized template captions when Gemini is unavailable."""
+    desc = description or "a game-changing AI tool you need to try"
     site = website or ""
     credit = f" by {handle}" if handle else ""
     headline = f"{tool_name}{credit}"
 
-    # X / Twitter
-    x_caption = f"🚀 {headline} — {desc}" if desc else f"🚀 {headline}"
+    # X / Twitter — punchy hook + CTA
+    x_lines = [f"Stop satisfying. This AI tool is insane 🤯"]
+    x_lines.append(f"\n{headline} — {desc}")
     if site:
-        x_caption += f"\n{site}"
-    x_caption += "\n#AI #Tech #Innovation"
-    x_caption = x_caption[:280]
+        x_lines.append(f"\n🔗 {site}")
+    x_lines.append("\nBookmark this 🔖")
+    x_lines.append("\n#AI #AITools #Tech")
+    x_caption = "".join(x_lines)[:280]
 
-    # LinkedIn
-    linkedin_parts = [f"🔥 {headline}"]
-    if desc:
-        linkedin_parts.append(desc)
+    # LinkedIn — thought-leadership hook + CTA
+    linkedin_parts = [
+        f"Most people don't know about {tool_name} yet.\n\nBut it's about to change everything.",
+        f"{desc}" if desc else f"This is one of the most powerful AI tools I've seen this year.",
+    ]
     if site:
-        linkedin_parts.append(f"🔗 {site}")
-    linkedin_parts.append("#AI #ArtificialIntelligence #Tech #Innovation")
+        linkedin_parts.append(f"🔗 Try it: {site}")
+    linkedin_parts.append(
+        "💡 Follow Execution AI for daily AI tool spotlights that keep you ahead of the curve."
+    )
+    linkedin_parts.append(
+        "#AI #ArtificialIntelligence #Innovation #Tech #Productivity "
+        "#AITools #FutureTech #Automation #MachineLearning #Startup"
+    )
     linkedin_caption = "\n\n".join(linkedin_parts)
 
-    # Instagram
-    instagram_parts = [f"🚀 {headline}"]
-    if desc:
-        instagram_parts.append(desc)
-    instagram_parts.append("🔗 Link in bio!")
-    instagram_parts.append(
-        "#AI #ArtificialIntelligence #Tech #Innovation #AITools "
-        "#FutureTech #Automation #MachineLearning"
-    )
+    # Instagram — Reels-optimized with max hashtags
+    instagram_parts = [
+        f"🤯 This AI tool just changed the game → {headline}",
+        f"{desc}" if desc else "You NEED to try this.",
+        "💾 Save this for later\n📤 Share with a friend who needs this",
+        "🔗 Link in bio!",
+        "👉 Follow @execution.ai for daily AI tools 🚀",
+        (
+            "#AI #AITools #ArtificialIntelligence #Tech #Innovation #Reels "
+            "#Viral #Trending #AIReels #TechReels #ProductivityHacks "
+            "#FutureTech #MachineLearning #Automation #DigitalMarketing "
+            "#Startup #Entrepreneur #TechTok #AIApp #AppReview #ToolReview "
+            "#GrowthHacking #SaaS #NoCode #AIHacks #DailyAI #Explore "
+            "#ReelsViral #InstaReels #TrendingReels"
+        ),
+    ]
     instagram_caption = "\n\n".join(instagram_parts)
 
-    # Facebook
-    facebook_parts = [f"🚀 {headline}"]
-    if desc:
-        facebook_parts.append(desc)
+    # Facebook — Reels-optimized, conversational
+    facebook_parts = [
+        f"🚀 Have you tried {headline} yet?",
+        f"{desc}" if desc else "This AI tool is a must-try.",
+    ]
     if site:
         facebook_parts.append(f"🔗 Check it out: {site}")
-    facebook_parts.append("#AI #Tech #Innovation")
+    facebook_parts.append("👇 Share this with someone who needs it!")
+    facebook_parts.append("💡 Follow our page for daily AI discoveries!")
+    facebook_parts.append(
+        "#AI #AITools #Tech #Innovation #FutureTech #Automation #Reels #Viral"
+    )
     facebook_caption = "\n\n".join(facebook_parts)
 
-    # YouTube
-    youtube_parts = [f"{headline} | AI Tool Spotlight"]
-    if desc:
-        youtube_parts.append(desc)
+    # YouTube — Shorts-optimized with #Shorts first
+    youtube_parts = [
+        f"{headline} — AI Tool You NEED to Try",
+        f"{desc}" if desc else "One of the best AI tools right now.",
+    ]
     if site:
-        youtube_parts.append(f"🔗 {site}")
-    youtube_parts.append("#AI #Tech #Innovation #AITools")
+        youtube_parts.append(f"🔗 Try it: {site}")
+    youtube_parts.append("🔔 Subscribe for daily AI tool reviews!")
+    youtube_parts.append(
+        "#Shorts #AI #AITools #YouTubeShorts #Tech #Innovation "
+        "#ArtificialIntelligence #Automation #FutureTech #Trending"
+    )
     youtube_caption = "\n\n".join(youtube_parts)
 
     return {

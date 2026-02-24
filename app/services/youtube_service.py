@@ -45,17 +45,33 @@ def _initiate_upload(
     title: str,
     description: str,
 ) -> str:
-    """Start a resumable upload session and return the upload URI."""
+    """Start a resumable upload session and return the upload URI.
+
+    Forces Shorts format by:
+      - Prepending #Shorts to the description
+      - Adding Shorts-optimized tags for discovery
+      - Using Science & Technology category
+    """
+    # Ensure #Shorts is in description (YouTube uses this to classify as Short)
+    if "#Shorts" not in description:
+        description = f"#Shorts\n\n{description}"
+
     metadata = {
         "snippet": {
-            "title": title,
+            "title": title[:100],  # Keep titles clean & concise
             "description": description,
-            "tags": ["AI", "AI Tools", "Shorts"],
+            "tags": [
+                "Shorts", "AI", "AI Tools", "Artificial Intelligence",
+                "Tech", "Innovation", "AI App", "Machine Learning",
+                "Automation", "Future Tech", "AI Software",
+            ],
             "categoryId": "28",  # Science & Technology
         },
         "status": {
             "privacyStatus": "public",
             "selfDeclaredMadeForKids": False,
+            "embeddable": True,
+            "publicStatsViewable": True,
         },
     }
 
@@ -114,11 +130,8 @@ def post_to_youtube(title: str, description: str, video_path: str) -> bool:
         logger.info("YouTube: obtaining access token...")
         access_token = _get_access_token()
 
-        # Append #Shorts to the title to signal YouTube
-        short_title = f"{title} #Shorts" if "#Shorts" not in title else title
-
-        logger.info("YouTube: initiating resumable upload...")
-        upload_uri = _initiate_upload(access_token, short_title, description)
+        logger.info("YouTube: initiating resumable upload (Shorts mode)...")
+        upload_uri = _initiate_upload(access_token, title, description)
 
         logger.info("YouTube: uploading video...")
         _upload_video(upload_uri, video_path, access_token)

@@ -121,6 +121,7 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
     # 3. Post to each platform ─────────────────────────────────────────────
     try:
         success_count = 0
+        error_parts = []   # collect per-platform errors for the error_log
 
         # LinkedIn
         if settings.LINKEDIN_ACCESS_TOKEN and (settings.LINKEDIN_ORG_ID or settings.LINKEDIN_PERSON_URN):
@@ -128,6 +129,8 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.linkedin_status = "SUCCESS" if linkedin_ok else "FAILED"
             if linkedin_ok:
                 success_count += 1
+            else:
+                error_parts.append("LinkedIn: posting failed")
         else:
             tool.linkedin_status = "SKIPPED"
             logger.info("LinkedIn: skipped (credentials not configured).")
@@ -138,6 +141,8 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.instagram_status = "SUCCESS" if instagram_ok else "FAILED"
             if instagram_ok:
                 success_count += 1
+            else:
+                error_parts.append("Instagram: posting failed")
         else:
             tool.instagram_status = "SKIPPED"
             logger.info("Instagram: skipped (credentials not configured).")
@@ -148,16 +153,20 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.facebook_status = "SUCCESS" if facebook_ok else "FAILED"
             if facebook_ok:
                 success_count += 1
+            else:
+                error_parts.append("Facebook: posting failed")
         else:
             tool.facebook_status = "SKIPPED"
             logger.info("Facebook: skipped (credentials not configured).")
 
-        # YouTube
+        # YouTube Shorts
         if settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_CLIENT_SECRET and settings.YOUTUBE_REFRESH_TOKEN:
             youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], video_path)
             tool.youtube_status = "SUCCESS" if youtube_ok else "FAILED"
             if youtube_ok:
                 success_count += 1
+            else:
+                error_parts.append("YouTube: posting failed")
         else:
             tool.youtube_status = "SKIPPED"
             logger.info("YouTube: skipped (credentials not configured).")
@@ -168,9 +177,14 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.x_status = "SUCCESS" if x_ok else "FAILED"
             if x_ok:
                 success_count += 1
+            else:
+                error_parts.append("X: posting failed")
         else:
             tool.x_status = "SKIPPED"
             logger.info("X/Twitter: skipped (credentials not configured).")
+
+        # Save error log if any failures
+        tool.error_log = " | ".join(error_parts) if error_parts else None
 
         # 4. Update overall status ─────────────────────────────────────────
         attempted = sum(

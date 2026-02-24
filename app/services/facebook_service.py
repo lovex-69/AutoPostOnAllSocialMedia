@@ -102,7 +102,11 @@ def _upload_video_to_facebook(video_path: str) -> str:
 
 
 def _publish_reel(video_id: str, caption: str) -> None:
-    """Finish the upload and publish the Reel on the Page."""
+    """Finish the upload and publish the Reel on the Page.
+
+    Publishes explicitly as a Reel (not a regular video) for maximum
+    reach via Facebook's Reels algorithm.
+    """
     page_id = settings.FACEBOOK_PAGE_ID
     page_token = _get_page_access_token()
 
@@ -112,6 +116,7 @@ def _publish_reel(video_id: str, caption: str) -> None:
         "video_id": video_id,
         "title": caption[:255] if caption else "",
         "description": caption,
+        "video_state": "PUBLISHED",
         "access_token": page_token,
     }
     resp = requests.post(url, data=params, timeout=60)

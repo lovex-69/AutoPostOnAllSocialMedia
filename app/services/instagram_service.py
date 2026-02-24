@@ -27,12 +27,16 @@ def _create_container(video_url: str, caption: str) -> str:
 
     Note: The Graph API requires a *public* URL for the video,
     so video_url here should be the original remote URL (not local path).
+
+    Posts as REELS (not VIDEO) to get Reels algorithm boost.
+    share_to_feed=true ensures it also appears on the profile grid.
     """
     url = f"{GRAPH_URL}/{settings.INSTAGRAM_BUSINESS_ID}/media"
     params = {
         "media_type": "REELS",
         "video_url": video_url,
         "caption": caption,
+        "share_to_feed": "true",
         "access_token": settings.META_ACCESS_TOKEN,
     }
     resp = requests.post(url, data=params, timeout=30)
