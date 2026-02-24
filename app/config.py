@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     MAX_RETRIES: int = 3
     RETRY_BACKOFF_SECONDS: int = 2
 
+    # ── Notifications (optional) ──────────────────────────────────────────
+    DISCORD_WEBHOOK_URL: Optional[str] = None
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_CHAT_ID: Optional[str] = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

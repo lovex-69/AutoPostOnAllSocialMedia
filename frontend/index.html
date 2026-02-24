@@ -1,621 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>ExecutionPosting — AI Tools Distribution</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
-        /* ── Reset & Variables ────────────────────────────────── */
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        :root {
-            --bg: #0b0e14;
-            --surface: #131720;
-            --surface-2: #1a1f2e;
-            --border: #252b3b;
-            --text: #e4e8f1;
-            --text-dim: #8891a5;
-            --accent: #6c63ff;
-            --accent-glow: rgba(108, 99, 255, .35);
-            --green: #34d399;
-            --red: #f87171;
-            --amber: #fbbf24;
-            --blue: #60a5fa;
-            --radius: 14px;
-            --transition: .25s cubic-bezier(.4, 0, .2, 1);
-        }
-
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-
-        /* ── Layout ──────────────────────────────────────────── */
-        .app {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem 4rem;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-
-        header h1 {
-            font-size: 2.2rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--accent), #a78bfa, #60a5fa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
-        }
-
-        header p {
-            color: var(--text-dim);
-            margin-top: .4rem;
-            font-size: .95rem;
-        }
-
-        /* ── Server status bar ───────────────────────────────── */
-        .server-bar {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: .5rem;
-            padding: .5rem 1rem;
-            border-radius: 10px;
-            font-size: .82rem;
-            font-weight: 600;
-            margin-bottom: 2rem;
-            transition: all var(--transition);
-        }
-
-        .server-bar .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .server-bar.checking {
-            background: rgba(251, 191, 36, .1);
-            border: 1px solid rgba(251, 191, 36, .3);
-            color: var(--amber);
-        }
-
-        .server-bar.checking .dot {
-            background: var(--amber);
-            animation: pulse 1.2s infinite;
-        }
-
-        .server-bar.online {
-            background: rgba(52, 211, 153, .1);
-            border: 1px solid rgba(52, 211, 153, .3);
-            color: var(--green);
-        }
-
-        .server-bar.online .dot {
-            background: var(--green);
-        }
-
-        .server-bar.sleeping {
-            background: rgba(248, 113, 113, .1);
-            border: 1px solid rgba(248, 113, 113, .3);
-            color: var(--red);
-        }
-
-        .server-bar.sleeping .dot {
-            background: var(--red);
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .3; }
-        }
-
-        /* ── Gate overlay ────────────────────────────────────── */
-        .gate-overlay {
-            position: fixed;
-            inset: 0;
-            background: var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            transition: opacity .5s ease;
-        }
-
-        .gate-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .gate-box {
-            text-align: center;
-            max-width: 420px;
-            padding: 3rem 2rem;
-        }
-
-        .gate-box h2 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--accent), #a78bfa, #60a5fa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: .8rem;
-        }
-
-        .gate-box p {
-            color: var(--text-dim);
-            font-size: .92rem;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
-
-        .gate-status {
-            font-size: .85rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            min-height: 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: .4rem;
-        }
-
-        .gate-btn {
-            padding: .9rem 2.5rem;
-            font-size: 1rem;
-            font-weight: 700;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            background: linear-gradient(135deg, var(--accent), #8b5cf6);
-            color: #fff;
-            letter-spacing: .3px;
-            transition: all var(--transition);
-            position: relative;
-        }
-
-        .gate-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .gate-btn:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1.3fr;
-            gap: 2rem;
-            align-items: start;
-        }
-
-        @media (max-width: 800px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* ── Card ────────────────────────────────────────────── */
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.8rem;
-            transition: border-color var(--transition);
-        }
-
-        .card:hover {
-            border-color: var(--accent);
-        }
-
-        .card h2 {
-            font-size: 1.15rem;
-            font-weight: 700;
-            margin-bottom: 1.4rem;
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-        }
-
-        .card h2 .icon {
-            font-size: 1.3rem;
-        }
-
-        /* ── Form ────────────────────────────────────────────── */
-        .form-group {
-            margin-bottom: 1.1rem;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: .8rem;
-            font-weight: 600;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: .6px;
-            margin-bottom: .35rem;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: .7rem 1rem;
-            color: var(--text);
-            font-family: inherit;
-            font-size: .9rem;
-            transition: border-color var(--transition), box-shadow var(--transition);
-            outline: none;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 72px;
-        }
-
-        /* ── Toggle ──────────────────────────────────────────── */
-        .video-toggle {
-            display: flex;
-            background: var(--surface-2);
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 1rem;
-            border: 1px solid var(--border);
-        }
-
-        .video-toggle button {
-            flex: 1;
-            padding: .55rem;
-            font-size: .82rem;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            background: transparent;
-            color: var(--text-dim);
-            transition: all var(--transition);
-        }
-
-        .video-toggle button.active {
-            background: var(--accent);
-            color: #fff;
-        }
-
-        /* ── File Drop Zone ──────────────────────────────────── */
-        .drop-zone {
-            border: 2px dashed var(--border);
-            border-radius: 12px;
-            padding: 2rem 1rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all var(--transition);
-            color: var(--text-dim);
-            font-size: .85rem;
-            position: relative;
-        }
-
-        .drop-zone:hover,
-        .drop-zone.drag-over {
-            border-color: var(--accent);
-            background: rgba(108, 99, 255, .06);
-        }
-
-        .drop-zone input {
-            display: none;
-        }
-
-        .drop-zone .icon-upload {
-            font-size: 2rem;
-            margin-bottom: .5rem;
-        }
-
-        .drop-zone .file-name {
-            color: var(--green);
-            font-weight: 600;
-            margin-top: .4rem;
-        }
-
-        /* ── Submit Button ───────────────────────────────────── */
-        .btn-submit {
-            width: 100%;
-            padding: .85rem;
-            font-size: .95rem;
-            font-weight: 700;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            background: linear-gradient(135deg, var(--accent), #8b5cf6);
-            color: #fff;
-            letter-spacing: .3px;
-            transition: all var(--transition);
-            margin-top: .5rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .btn-submit:active {
-            transform: translateY(0);
-        }
-
-        .btn-submit:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        /* ── Toast ────────────────────────────────────────────── */
-        .toast {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            font-size: .9rem;
-            font-weight: 600;
-            color: #fff;
-            transform: translateY(120%);
-            opacity: 0;
-            transition: all .35s ease;
-            z-index: 999;
-        }
-
-        .toast.show {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        .toast.success {
-            background: linear-gradient(135deg, #059669, #34d399);
-        }
-
-        .toast.error {
-            background: linear-gradient(135deg, #dc2626, #f87171);
-        }
-
-        /* ── Table ────────────────────────────────────────────── */
-        .tools-list h2 {
-            margin-bottom: 1rem;
-        }
-
-        .tool-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: .82rem;
-        }
-
-        .tool-table th {
-            text-align: left;
-            padding: .6rem .7rem;
-            color: var(--text-dim);
-            font-weight: 600;
-            font-size: .72rem;
-            text-transform: uppercase;
-            letter-spacing: .5px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .tool-table td {
-            padding: .65rem .7rem;
-            border-bottom: 1px solid var(--border);
-            vertical-align: middle;
-        }
-
-        .tool-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .tool-table tr {
-            transition: background var(--transition);
-        }
-
-        .tool-table tr:hover {
-            background: rgba(108, 99, 255, .04);
-        }
-
-        /* ── Badges ────────────────────────────────────────────── */
-        .badge {
-            display: inline-block;
-            padding: .15rem .55rem;
-            border-radius: 6px;
-            font-size: .72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: .4px;
-        }
-
-        .badge-ready {
-            background: rgba(96, 165, 250, .15);
-            color: var(--blue);
-        }
-
-        .badge-posted {
-            background: rgba(52, 211, 153, .15);
-            color: var(--green);
-        }
-
-        .badge-failed {
-            background: rgba(248, 113, 113, .15);
-            color: var(--red);
-        }
-
-        .badge-draft {
-            background: rgba(136, 145, 165, .15);
-            color: var(--text-dim);
-        }
-
-        .badge-pending {
-            background: rgba(251, 191, 36, .12);
-            color: var(--amber);
-        }
-
-        .badge-success {
-            background: rgba(52, 211, 153, .15);
-            color: var(--green);
-        }
-
-        .badge-skipped {
-            background: rgba(136, 145, 165, .12);
-            color: var(--text-dim);
-        }
-
-        .platform-badges {
-            display: flex;
-            gap: .3rem;
-            flex-wrap: wrap;
-        }
-
-        .platform-badges .badge {
-            font-size: .65rem;
-            padding: .1rem .4rem;
-        }
-
-        /* ── Expanded per-platform detail ─────────────────────── */
-        .platform-detail {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: .25rem .6rem;
-            font-size: .78rem;
-        }
-
-        .platform-detail .p-row {
-            display: flex;
-            align-items: center;
-            gap: .35rem;
-        }
-
-        .platform-detail .p-label {
-            color: var(--text-dim);
-            font-weight: 600;
-            min-width: 2rem;
-        }
-
-        .schedule-info {
-            font-size: .72rem;
-            color: var(--amber);
-            margin-top: .2rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem 1rem;
-            color: var(--text-dim);
-        }
-
-        .empty-state .icon {
-            font-size: 2.5rem;
-            margin-bottom: .5rem;
-        }
-
-        /* ── Refresh button ──────────────────────────────────── */
-        .btn-refresh {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            padding: .3rem .7rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: .8rem;
-            transition: all var(--transition);
-        }
-
-        .btn-refresh:hover {
-            border-color: var(--accent);
-            color: var(--text);
-        }
-
-        /* ── Spinner ──────────────────────────────────────────── */
-        .spinner {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, .3);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin .6s linear infinite;
-            vertical-align: middle;
-            margin-right: .4rem;
-        }
-
-        .spinner.sm {
-            width: 14px;
-            height: 14px;
-            border-width: 2px;
-            margin: 0;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        /* ── Reset & Variables ─────────────────────────────── */
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#0b0e14;--surface:#131720;--surface-2:#1a1f2e;--border:#252b3b;--text:#e4e8f1;--text-dim:#8891a5;--accent:#6c63ff;--accent-glow:rgba(108,99,255,.35);--green:#34d399;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--radius:14px;--transition:.25s cubic-bezier(.4,0,.2,1)}
+        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+
+        /* ── Layout ───────────────────────────────────────── */
+        .app{max-width:1200px;margin:0 auto;padding:2rem 1.5rem 4rem}
+        header{text-align:center;margin-bottom:1.5rem}
+        header h1{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.5px}
+        header p{color:var(--text-dim);margin-top:.4rem;font-size:.95rem}
+
+        /* ── Server bar ───────────────────────────────────── */
+        .server-bar{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.5rem 1rem;border-radius:10px;font-size:.82rem;font-weight:600;margin-bottom:1.5rem;transition:all var(--transition)}
+        .server-bar .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+        .server-bar.checking{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:var(--amber)}
+        .server-bar.checking .dot{background:var(--amber);animation:pulse 1.2s infinite}
+        .server-bar.online{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:var(--green)}
+        .server-bar.online .dot{background:var(--green)}
+        .server-bar.sleeping{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--red)}
+        .server-bar.sleeping .dot{background:var(--red)}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+        /* ── Gate overlay ─────────────────────────────────── */
+        .gate-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .5s ease}
+        .gate-overlay.hidden{opacity:0;pointer-events:none}
+        .gate-box{text-align:center;max-width:420px;padding:3rem 2rem}
+        .gate-box h2{font-size:1.6rem;font-weight:800;background:linear-gradient(135deg,var(--accent),#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.8rem}
+        .gate-box p{color:var(--text-dim);font-size:.92rem;margin-bottom:2rem;line-height:1.6}
+        .gate-status{font-size:.85rem;font-weight:600;margin-bottom:1.5rem;min-height:2rem;display:flex;align-items:center;justify-content:center;gap:.4rem}
+        .gate-btn{padding:.9rem 2.5rem;font-size:1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;letter-spacing:.3px;transition:all var(--transition);position:relative}
+        .gate-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}
+        .gate-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+
+        /* ── Tabs ─────────────────────────────────────────── */
+        .tab-bar{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
+        .tab-btn{padding:.5rem 1.2rem;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text-dim);font-size:.82rem;font-weight:600;cursor:pointer;transition:all var(--transition)}
+        .tab-btn:hover{border-color:var(--accent);color:var(--text)}
+        .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+        .tab-content{display:none}
+        .tab-content.active{display:block}
+
+        /* ── Grid ─────────────────────────────────────────── */
+        .grid{display:grid;grid-template-columns:1fr 1.3fr;gap:2rem;align-items:start}
+        @media(max-width:800px){.grid{grid-template-columns:1fr}}
+
+        /* ── Card ─────────────────────────────────────────── */
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.8rem;transition:border-color var(--transition)}
+        .card:hover{border-color:var(--accent)}
+        .card h2{font-size:1.15rem;font-weight:700;margin-bottom:1.4rem;display:flex;align-items:center;gap:.5rem}
+        .card h2 .icon{font-size:1.3rem}
+
+        /* ── Form ─────────────────────────────────────────── */
+        .form-group{margin-bottom:1.1rem}
+        .form-group label{display:block;font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem}
+        .form-group input,.form-group textarea,.form-group select{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;color:var(--text);font-family:inherit;font-size:.9rem;transition:border-color var(--transition),box-shadow var(--transition);outline:none}
+        .form-group input:focus,.form-group textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+        .form-group textarea{resize:vertical;min-height:72px}
+
+        /* ── Toggle ───────────────────────────────────────── */
+        .video-toggle{display:flex;background:var(--surface-2);border-radius:10px;overflow:hidden;margin-bottom:1rem;border:1px solid var(--border)}
+        .video-toggle button{flex:1;padding:.55rem;font-size:.82rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text-dim);transition:all var(--transition)}
+        .video-toggle button.active{background:var(--accent);color:#fff}
+
+        /* ── Drop zone ────────────────────────────────────── */
+        .drop-zone{border:2px dashed var(--border);border-radius:12px;padding:2rem 1rem;text-align:center;cursor:pointer;transition:all var(--transition);color:var(--text-dim);font-size:.85rem;position:relative}
+        .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(108,99,255,.06)}
+        .drop-zone input{display:none}
+        .drop-zone .icon-upload{font-size:2rem;margin-bottom:.5rem}
+        .drop-zone .file-name{color:var(--green);font-weight:600;margin-top:.4rem}
+
+        /* ── Buttons ──────────────────────────────────────── */
+        .btn-submit{width:100%;padding:.85rem;font-size:.95rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;letter-spacing:.3px;transition:all var(--transition);margin-top:.5rem;position:relative;overflow:hidden}
+        .btn-submit:hover{transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}
+        .btn-submit:active{transform:translateY(0)}
+        .btn-submit:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+        .btn-sm{padding:.25rem .6rem;font-size:.7rem;font-weight:600;border:none;border-radius:6px;cursor:pointer;transition:all var(--transition)}
+        .btn-retry{background:rgba(96,165,250,.15);color:var(--blue)}
+        .btn-retry:hover{background:rgba(96,165,250,.3)}
+        .btn-delete{background:rgba(248,113,113,.12);color:var(--red)}
+        .btn-delete:hover{background:rgba(248,113,113,.25)}
+        .btn-refresh{background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);padding:.3rem .7rem;border-radius:8px;cursor:pointer;font-size:.8rem;transition:all var(--transition)}
+        .btn-refresh:hover{border-color:var(--accent);color:var(--text)}
+
+        /* ── Toast ────────────────────────────────────────── */
+        .toast{position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;border-radius:12px;font-size:.9rem;font-weight:600;color:#fff;transform:translateY(120%);opacity:0;transition:all .35s ease;z-index:999}
+        .toast.show{transform:translateY(0);opacity:1}
+        .toast.success{background:linear-gradient(135deg,#059669,#34d399)}
+        .toast.error{background:linear-gradient(135deg,#dc2626,#f87171)}
+
+        /* ── Table ────────────────────────────────────────── */
+        .tools-list h2{margin-bottom:1rem}
+        .tool-table{width:100%;border-collapse:collapse;font-size:.82rem}
+        .tool-table th{text-align:left;padding:.6rem .7rem;color:var(--text-dim);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+        .tool-table td{padding:.65rem .7rem;border-bottom:1px solid var(--border);vertical-align:middle}
+        .tool-table tr:last-child td{border-bottom:none}
+        .tool-table tr{transition:background var(--transition)}
+        .tool-table tr:hover{background:rgba(108,99,255,.04)}
+
+        /* ── Badges ───────────────────────────────────────── */
+        .badge{display:inline-block;padding:.15rem .55rem;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+        .badge-ready{background:rgba(96,165,250,.15);color:var(--blue)}
+        .badge-posted{background:rgba(52,211,153,.15);color:var(--green)}
+        .badge-failed{background:rgba(248,113,113,.15);color:var(--red)}
+        .badge-draft{background:rgba(136,145,165,.15);color:var(--text-dim)}
+        .badge-pending{background:rgba(251,191,36,.12);color:var(--amber)}
+        .badge-success{background:rgba(52,211,153,.15);color:var(--green)}
+        .badge-skipped{background:rgba(136,145,165,.12);color:var(--text-dim)}
+
+        .platform-detail{display:grid;grid-template-columns:1fr 1fr;gap:.25rem .6rem;font-size:.78rem}
+        .platform-detail .p-row{display:flex;align-items:center;gap:.35rem}
+        .platform-detail .p-label{color:var(--text-dim);font-weight:600;min-width:2rem}
+        .schedule-info{font-size:.72rem;color:var(--amber);margin-top:.2rem}
+        .error-log{font-size:.7rem;color:var(--red);margin-top:.3rem;max-width:300px;word-break:break-word}
+
+        .empty-state{text-align:center;padding:3rem 1rem;color:var(--text-dim)}
+        .empty-state .icon{font-size:2.5rem;margin-bottom:.5rem}
+
+        /* ── Analytics ────────────────────────────────────── */
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:2rem}
+        .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem;text-align:center}
+        .stat-card .stat-value{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .stat-card .stat-label{font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-top:.3rem}
+        .platform-bar{display:flex;align-items:center;gap:.8rem;padding:.6rem 0;border-bottom:1px solid var(--border)}
+        .platform-bar:last-child{border-bottom:none}
+        .platform-bar .p-name{min-width:80px;font-weight:600;font-size:.85rem}
+        .progress-track{flex:1;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+        .progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .5s ease}
+        .platform-bar .p-rate{font-size:.8rem;font-weight:700;min-width:45px;text-align:right}
+
+        /* ── Token health ─────────────────────────────────── */
+        .token-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
+        .token-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem}
+        .token-card h3{font-size:.9rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+        .token-card .token-status{font-size:.78rem;margin-bottom:.3rem}
+        .token-card .token-detail{font-size:.72rem;color:var(--text-dim)}
+
+        /* ── Bulk upload ──────────────────────────────────── */
+        .bulk-area textarea{min-height:200px;font-family:'Courier New',monospace;font-size:.82rem}
+
+        /* ── Spinner ──────────────────────────────────────── */
+        .spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:.4rem}
+        .spinner.sm{width:14px;height:14px;border-width:2px;margin:0}
+        @keyframes spin{to{transform:rotate(360deg)}}
     </style>
 </head>
-
 <body>
-    <!-- ── Gate / Wake-up Overlay ──────────────────────────── -->
+    <!-- ── Gate Overlay ───────────────────────────────────── -->
     <div class="gate-overlay" id="gateOverlay">
         <div class="gate-box">
             <h2>ExecutionPosting</h2>
-            <p>Automated multi-platform AI tool distribution.<br>
-                The backend server may be sleeping — tap below to wake it up.</p>
+            <p>Automated multi-platform AI tool distribution.<br>The backend server may be sleeping — tap below to wake it up.</p>
             <div class="form-group" style="margin-bottom:1.2rem;text-align:left;">
-                <label for="gatePassword" style="display:block;font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem;">Access Key</label>
-                <input type="password" id="gatePassword" placeholder="Enter your secret key"
-                    style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;" />
+                <label for="gatePassword">Access Key</label>
+                <input type="password" id="gatePassword" placeholder="Enter your secret key" />
             </div>
             <div class="gate-status" id="gateStatus">
                 <span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--text-dim);display:inline-block;"></span>
                 Checking server status...
             </div>
-            <button class="gate-btn" id="gateBtn" onclick="wakeServer()">
-                Unlock & Wake Up Server
-            </button>
+            <button class="gate-btn" id="gateBtn" onclick="wakeServer()">Unlock &amp; Wake Up Server</button>
         </div>
     </div>
 
-    <!-- ── Main App ──────────────────────────────────────── -->
+    <!-- ── Main App ───────────────────────────────────────── -->
     <div class="app" id="mainApp" style="display:none;">
         <header>
             <h1>ExecutionPosting</h1>
             <p>Submit AI tools for automated multi-platform distribution</p>
         </header>
 
-        <!-- Server status bar -->
         <div class="server-bar online" id="serverBar" style="justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:.5rem;">
                 <span class="dot"></span>
@@ -624,81 +186,115 @@
             <button onclick="logout()" style="background:transparent;border:1px solid rgba(248,113,113,.3);color:var(--red);padding:.2rem .6rem;border-radius:6px;font-size:.72rem;font-weight:600;cursor:pointer;">Logout</button>
         </div>
 
-        <div class="grid">
-            <!-- ── Left: Form ──────────────────────────────── -->
-            <div class="card" id="formCard">
-                <h2><span class="icon">+</span> New AI Tool</h2>
-                <form id="toolForm" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label for="tool_name">Tool Name *</label>
-                        <input type="text" id="tool_name" name="tool_name" required placeholder="e.g. ChatGPT" />
-                    </div>
-                    <div class="form-group">
-                        <label for="handle">Creator Handle</label>
-                        <input type="text" id="handle" name="handle" placeholder="@openai" />
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Description</label>
-                        <textarea id="description" name="description"
-                            placeholder="A brief description of the tool..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="website">Website</label>
-                        <input type="url" id="website" name="website" placeholder="https://example.com" />
-                    </div>
+        <!-- ── Tab bar ────────────────────────────────────── -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="postTab" onclick="switchTab('postTab',this)">&#x1F4E4; Post</button>
+            <button class="tab-btn" data-tab="analyticsTab" onclick="switchTab('analyticsTab',this)">&#x1F4CA; Analytics</button>
+            <button class="tab-btn" data-tab="bulkTab" onclick="switchTab('bulkTab',this)">&#x1F4E6; Bulk Upload</button>
+            <button class="tab-btn" data-tab="healthTab" onclick="switchTab('healthTab',this)">&#x1F6E1; Token Health</button>
+        </div>
 
-                    <!-- Video toggle -->
-                    <label
-                        style="font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem;display:block;">Video
-                        *</label>
-                    <div class="video-toggle">
-                        <button type="button" id="btnUrl" class="active" onclick="toggleVideo('url')">Paste
-                            URL</button>
-                        <button type="button" id="btnUpload" onclick="toggleVideo('upload')">Upload File</button>
-                    </div>
-
-                    <!-- URL input (default) -->
-                    <div class="form-group" id="urlGroup">
-                        <input type="text" id="video_url" placeholder="https://example.com/video.mp4" />
-                    </div>
-
-                    <!-- File upload (hidden by default) -->
-                    <div id="uploadGroup" style="display:none;">
-                        <div class="drop-zone" id="dropZone">
-                            <div class="icon-upload">&#8679;</div>
-                            <div>Drag & drop MP4 here or <strong>click to browse</strong></div>
-                            <div class="file-name" id="fileName"></div>
-                            <input type="file" id="video_file" accept="video/mp4" />
+        <!-- ═══════════ POST TAB ═══════════ -->
+        <div class="tab-content active" id="postTab">
+            <div class="grid">
+                <!-- Left: Form -->
+                <div class="card" id="formCard">
+                    <h2><span class="icon">+</span> New AI Tool</h2>
+                    <form id="toolForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="tool_name">Tool Name *</label>
+                            <input type="text" id="tool_name" name="tool_name" required placeholder="e.g. ChatGPT" />
                         </div>
-                    </div>
-
-                    <!-- Optional scheduled posting -->
-                    <div class="form-group">
-                        <label for="scheduled_at">Schedule (optional)</label>
-                        <input type="datetime-local" id="scheduled_at" name="scheduled_at"
-                            style="color-scheme:dark;" />
-                        <div style="font-size:.7rem;color:var(--text-dim);margin-top:.25rem;">
-                            Leave empty to post immediately on next scheduler cycle.
+                        <div class="form-group">
+                            <label for="handle">Creator Handle</label>
+                            <input type="text" id="handle" name="handle" placeholder="@openai" />
                         </div>
-                    </div>
+                        <div class="form-group">
+                            <label for="description">Description</label>
+                            <textarea id="description" name="description" placeholder="A brief description of the tool..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="website">Website</label>
+                            <input type="url" id="website" name="website" placeholder="https://example.com" />
+                        </div>
 
-                    <button type="submit" class="btn-submit" id="submitBtn">
-                        Submit & Queue for Posting
-                    </button>
-                </form>
+                        <label style="font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem;display:block;">Video *</label>
+                        <div class="video-toggle">
+                            <button type="button" id="btnUrl" class="active" onclick="toggleVideo('url')">Paste URL</button>
+                            <button type="button" id="btnUpload" onclick="toggleVideo('upload')">Upload File</button>
+                        </div>
+
+                        <div class="form-group" id="urlGroup">
+                            <input type="text" id="video_url" placeholder="https://example.com/video.mp4" />
+                        </div>
+
+                        <div id="uploadGroup" style="display:none;">
+                            <div class="drop-zone" id="dropZone">
+                                <div class="icon-upload">&#8679;</div>
+                                <div>Drag &amp; drop MP4 here or <strong>click to browse</strong></div>
+                                <div class="file-name" id="fileName"></div>
+                                <input type="file" id="video_file" accept="video/mp4" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="scheduled_at">Schedule (optional)</label>
+                            <input type="datetime-local" id="scheduled_at" name="scheduled_at" style="color-scheme:dark;" />
+                            <div style="font-size:.7rem;color:var(--text-dim);margin-top:.25rem;">Leave empty to post immediately on next scheduler cycle.</div>
+                        </div>
+
+                        <button type="submit" class="btn-submit" id="submitBtn">Submit &amp; Queue for Posting</button>
+                    </form>
+                </div>
+
+                <!-- Right: Tools List -->
+                <div class="card tools-list">
+                    <h2 style="justify-content:space-between;">
+                        <span><span class="icon">&#9776;</span> Queued Tools</span>
+                        <button class="btn-refresh" onclick="loadTools()">Refresh</button>
+                    </h2>
+                    <div id="toolsContainer">
+                        <div class="empty-state"><div class="icon">&#x1F4E6;</div><p>No tools submitted yet</p></div>
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <!-- ── Right: Tools List ───────────────────────── -->
-            <div class="card tools-list">
-                <h2 style="justify-content:space-between;">
-                    <span><span class="icon">&#9776;</span> Queued Tools</span>
-                    <button class="btn-refresh" onclick="loadTools()">Refresh</button>
-                </h2>
-                <div id="toolsContainer">
-                    <div class="empty-state">
-                        <div class="icon">&#x1F4E6;</div>
-                        <p>No tools submitted yet</p>
-                    </div>
+        <!-- ═══════════ ANALYTICS TAB ═══════════ -->
+        <div class="tab-content" id="analyticsTab">
+            <div class="card">
+                <h2><span class="icon">&#x1F4CA;</span> Posting Analytics</h2>
+                <div id="analyticsContent">
+                    <div class="empty-state"><span class="spinner sm"></span> Loading analytics...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════ BULK UPLOAD TAB ═══════════ -->
+        <div class="tab-content" id="bulkTab">
+            <div class="card bulk-area">
+                <h2><span class="icon">&#x1F4E6;</span> Bulk Upload</h2>
+                <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:1rem;">
+                    Paste a JSON array of tools. Each object needs <code style="color:var(--accent);">tool_name</code> and <code style="color:var(--accent);">video_url</code>.
+                    Optional: <code style="color:var(--accent);">handle</code>, <code style="color:var(--accent);">description</code>, <code style="color:var(--accent);">website</code>, <code style="color:var(--accent);">scheduled_at</code>.
+                </p>
+                <div class="form-group">
+                    <textarea id="bulkJson" placeholder='[
+  {"tool_name": "ChatGPT", "video_url": "https://example.com/chatgpt.mp4", "description": "AI chatbot"},
+  {"tool_name": "Midjourney", "video_url": "https://example.com/mj.mp4", "website": "https://midjourney.com"}
+]'></textarea>
+                </div>
+                <button class="btn-submit" id="bulkBtn" onclick="bulkUpload()">Upload All Tools</button>
+                <div id="bulkResult" style="margin-top:1rem;font-size:.85rem;"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════ TOKEN HEALTH TAB ═══════════ -->
+        <div class="tab-content" id="healthTab">
+            <div class="card">
+                <h2><span class="icon">&#x1F6E1;</span> Token &amp; Service Health</h2>
+                <div id="healthContent">
+                    <div class="empty-state"><span class="spinner sm"></span> Checking tokens...</div>
                 </div>
             </div>
         </div>
@@ -707,323 +303,355 @@
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
-    <!-- Config — set your backend URL in this file -->
     <script src="config.js"></script>
-
     <script>
-        // ════════════════════════════════════════════════════════
-        // CONFIG — set your Render backend URL here
-        // ════════════════════════════════════════════════════════
-        const API_BASE = window.EXECUTION_API_URL || '';
-        // When deployed, this will be set via env/config.
-        // For local dev it defaults to '' (same-origin).
+    // ═══════════════════════════════════════════════════════════
+    // CONFIG
+    // ═══════════════════════════════════════════════════════════
+    const API_BASE = window.EXECUTION_API_URL || '';
 
-        // ── Auth helpers ──────────────────────────────────────
-        function getAuthKey() {
-            return sessionStorage.getItem('ep_auth_key') || '';
+    // ── Auth helpers ──────────────────────────────────────────
+    function getAuthKey() { return sessionStorage.getItem('ep_auth_key') || ''; }
+    function authHeaders() { return { 'X-Auth-Key': getAuthKey() }; }
+    function logout() { sessionStorage.removeItem('ep_auth_key'); location.reload(); }
+
+    // ── Gate / Wake-up logic ──────────────────────────────────
+    let serverOnline = false;
+
+    async function checkServer() {
+        try { const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) }); return r.ok; }
+        catch { return false; }
+    }
+
+    async function checkAuth(key) {
+        try { const r = await fetch(`${API_BASE}/api/tools`, { headers: { 'X-Auth-Key': key }, signal: AbortSignal.timeout(10000) }); return r.ok; }
+        catch { return false; }
+    }
+
+    (async () => {
+        const gateStatus = document.getElementById('gateStatus');
+        const gateBtn = document.getElementById('gateBtn');
+        const savedKey = getAuthKey();
+        gateStatus.innerHTML = '<span class="spinner sm"></span> Checking server...';
+        const online = await checkServer();
+        if (online && savedKey) { const authed = await checkAuth(savedKey); if (authed) { enterApp(); return; } }
+        if (online) {
+            gateStatus.innerHTML = '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;"></span> Server is online — enter your access key';
+        } else {
+            gateStatus.innerHTML = '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server is sleeping';
         }
+        gateBtn.disabled = false;
+    })();
 
-        function authHeaders() {
-            return { 'X-Auth-Key': getAuthKey() };
-        }
-
-        function logout() {
-            sessionStorage.removeItem('ep_auth_key');
-            location.reload();
-        }
-
-        // ── Gate / Wake-up logic ──────────────────────────────
-        let serverOnline = false;
-
-        async function checkServer() {
-            try {
-                const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) });
-                if (r.ok) return true;
-            } catch {}
-            return false;
-        }
-
-        async function checkAuth(key) {
-            try {
-                const r = await fetch(`${API_BASE}/api/tools`, {
-                    headers: { 'X-Auth-Key': key },
-                    signal: AbortSignal.timeout(10000)
-                });
-                return r.ok;
-            } catch {}
-            return false;
-        }
-
-        // Auto-check on page load — if already logged in, try to skip gate
-        (async () => {
-            const gateStatus = document.getElementById('gateStatus');
-            const gateBtn = document.getElementById('gateBtn');
-            const savedKey = getAuthKey();
-
-            gateStatus.innerHTML = '<span class="spinner sm"></span> Checking server...';
-
+    async function wakeServer() {
+        const gateStatus = document.getElementById('gateStatus');
+        const gateBtn = document.getElementById('gateBtn');
+        const key = document.getElementById('gatePassword').value.trim();
+        if (!key) { gateStatus.innerHTML = '<span style="color:var(--red);">Please enter your access key.</span>'; return; }
+        gateBtn.disabled = true;
+        gateBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+        gateStatus.innerHTML = '<span class="spinner sm"></span> Waking server & verifying key...';
+        const start = Date.now();
+        while (Date.now() - start < 90000) {
             const online = await checkServer();
-            if (online && savedKey) {
-                const authed = await checkAuth(savedKey);
-                if (authed) { enterApp(); return; }
-            }
-
             if (online) {
-                gateStatus.innerHTML =
-                    '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;"></span> Server is online — enter your access key';
-            } else {
-                gateStatus.innerHTML =
-                    '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server is sleeping';
+                const authed = await checkAuth(key);
+                if (authed) { sessionStorage.setItem('ep_auth_key', key); enterApp(); return; }
+                else { gateStatus.innerHTML = '<span style="color:var(--red);">Invalid access key. Try again.</span>'; gateBtn.disabled = false; gateBtn.innerHTML = 'Unlock &amp; Wake Up Server'; return; }
             }
-            gateBtn.disabled = false;
-        })();
-
-        async function wakeServer() {
-            const gateStatus = document.getElementById('gateStatus');
-            const gateBtn = document.getElementById('gateBtn');
-            const passwordInput = document.getElementById('gatePassword');
-            const key = passwordInput.value.trim();
-
-            if (!key) {
-                gateStatus.innerHTML = '<span style="color:var(--red);">Please enter your access key.</span>';
-                return;
-            }
-
-            gateBtn.disabled = true;
-            gateBtn.innerHTML = '<span class="spinner"></span> Connecting...';
-            gateStatus.innerHTML = '<span class="spinner sm"></span> Waking server & verifying key...';
-
-            // Keep pinging every 5s for up to 90s
-            const start = Date.now();
-            const maxWait = 90000;
-
-            while (Date.now() - start < maxWait) {
-                const online = await checkServer();
-                if (online) {
-                    // Server is up — verify the key
-                    const authed = await checkAuth(key);
-                    if (authed) {
-                        sessionStorage.setItem('ep_auth_key', key);
-                        enterApp();
-                        return;
-                    } else {
-                        gateStatus.innerHTML = '<span style="color:var(--red);">Invalid access key. Try again.</span>';
-                        gateBtn.disabled = false;
-                        gateBtn.innerHTML = 'Unlock & Wake Up Server';
-                        return;
-                    }
-                }
-                await new Promise(r => setTimeout(r, 5000));
-            }
-
-            // Timed out
-            gateStatus.innerHTML =
-                '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server did not respond. Try again.';
-            gateBtn.disabled = false;
-            gateBtn.innerHTML = 'Unlock & Wake Up Server';
+            await new Promise(r => setTimeout(r, 5000));
         }
+        gateStatus.innerHTML = '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server did not respond. Try again.';
+        gateBtn.disabled = false;
+        gateBtn.innerHTML = 'Unlock &amp; Wake Up Server';
+    }
 
-        // Also allow pressing Enter in password field
-        document.getElementById('gatePassword').addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); wakeServer(); }
-        });
+    document.getElementById('gatePassword').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); wakeServer(); } });
 
-        function enterApp() {
-            serverOnline = true;
-            document.getElementById('gateOverlay').classList.add('hidden');
-            document.getElementById('mainApp').style.display = 'block';
-            updateServerBar(true);
+    function enterApp() {
+        serverOnline = true;
+        document.getElementById('gateOverlay').classList.add('hidden');
+        document.getElementById('mainApp').style.display = 'block';
+        updateServerBar(true);
+        loadTools();
+    }
+
+    function updateServerBar(online) {
+        const bar = document.getElementById('serverBar');
+        const txt = document.getElementById('serverText');
+        if (online) { bar.className = 'server-bar online'; txt.textContent = 'Server Online'; }
+        else { bar.className = 'server-bar sleeping'; txt.textContent = 'Server Sleeping — requests may fail'; }
+    }
+
+    setInterval(async () => { if (!serverOnline) return; const ok = await checkServer(); updateServerBar(ok); }, 60000);
+
+    // ── Tabs ──────────────────────────────────────────────────
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+        if (tabId === 'analyticsTab') loadAnalytics();
+        if (tabId === 'healthTab') loadTokenHealth();
+    }
+
+    // ── Video toggle ──────────────────────────────────────────
+    function toggleVideo(mode) {
+        document.getElementById('btnUrl').classList.toggle('active', mode === 'url');
+        document.getElementById('btnUpload').classList.toggle('active', mode === 'upload');
+        document.getElementById('urlGroup').style.display = mode === 'url' ? 'block' : 'none';
+        document.getElementById('uploadGroup').style.display = mode === 'upload' ? 'block' : 'none';
+        if (mode === 'url') document.getElementById('video_file').value = '';
+        if (mode === 'upload') document.getElementById('video_url').value = '';
+    }
+
+    // ── Drop zone ─────────────────────────────────────────────
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('video_file');
+    const fileNameEl = document.getElementById('fileName');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; fileNameEl.textContent = e.dataTransfer.files[0].name; } });
+    fileInput.addEventListener('change', () => { fileNameEl.textContent = fileInput.files.length ? fileInput.files[0].name : ''; });
+
+    // ── Toast ─────────────────────────────────────────────────
+    function showToast(msg, type = 'success') {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = `toast ${type} show`;
+        setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    // ── Submit form ───────────────────────────────────────────
+    document.getElementById('toolForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Submitting...';
+        try {
+            const fd = new FormData();
+            const toolName = document.getElementById('tool_name').value.trim();
+            if (!toolName) throw new Error('Tool name is required.');
+            fd.append('tool_name', toolName);
+            const handle = document.getElementById('handle').value.trim();
+            if (handle) fd.append('handle', handle);
+            const desc = document.getElementById('description').value.trim();
+            if (desc) fd.append('description', desc);
+            const website = document.getElementById('website').value.trim();
+            if (website) fd.append('website', website);
+            const videoUrl = document.getElementById('video_url').value.trim();
+            const videoFile = document.getElementById('video_file').files[0];
+            if (videoUrl) fd.append('video_url', videoUrl);
+            else if (videoFile) fd.append('video_file', videoFile);
+            else throw new Error('Provide a video URL or upload a video file.');
+            const schedVal = document.getElementById('scheduled_at').value;
+            if (schedVal) fd.append('scheduled_at', schedVal + ':00Z');
+            const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd, headers: authHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Submission failed');
+            showToast(`"${data.tool_name}" queued for posting!`);
+            e.target.reset();
+            fileNameEl.textContent = '';
+            toggleVideo('url');
             loadTools();
-        }
+        } catch (err) { showToast(err.message, 'error'); }
+        finally { btn.disabled = false; btn.innerHTML = 'Submit &amp; Queue for Posting'; }
+    });
 
-        // ── Server status bar (inside app) ────────────────────
-        function updateServerBar(online) {
-            const bar = document.getElementById('serverBar');
-            const txt = document.getElementById('serverText');
-            if (online) {
-                bar.className = 'server-bar online';
-                txt.textContent = 'Server Online';
-            } else {
-                bar.className = 'server-bar sleeping';
-                txt.textContent = 'Server Sleeping — requests may fail';
+    // ── Load tools ────────────────────────────────────────────
+    async function loadTools() {
+        try {
+            const res = await fetch(`${API_BASE}/api/tools`, { headers: authHeaders() });
+            const tools = await res.json();
+            const container = document.getElementById('toolsContainer');
+            if (!tools.length) { container.innerHTML = '<div class="empty-state"><div class="icon">&#x1F4E6;</div><p>No tools submitted yet</p></div>'; return; }
+            container.innerHTML = `
+                <table class="tool-table">
+                    <thead><tr><th>Tool</th><th>Status</th><th>Platforms</th><th>Date</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        ${tools.map(t => `
+                            <tr>
+                                <td>
+                                    <strong>${esc(t.tool_name)}</strong>
+                                    ${t.website ? `<br><a href="${esc(t.website)}" target="_blank" style="color:var(--accent);font-size:.75rem;text-decoration:none;">${esc(t.website)}</a>` : ''}
+                                </td>
+                                <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>
+                                <td>
+                                    <div class="platform-detail">
+                                        <div class="p-row"><span class="p-label">YT</span> ${platformBadge(t.youtube_status)}</div>
+                                        <div class="p-row"><span class="p-label">X</span> ${platformBadge(t.x_status)}</div>
+                                        <div class="p-row"><span class="p-label">LI</span> ${platformBadge(t.linkedin_status)}</div>
+                                        <div class="p-row"><span class="p-label">IG</span> ${platformBadge(t.instagram_status)}</div>
+                                        <div class="p-row"><span class="p-label">FB</span> ${platformBadge(t.facebook_status)}</div>
+                                    </div>
+                                    ${t.error_log ? `<div class="error-log">&#x26A0; ${esc(t.error_log)}</div>` : ''}
+                                </td>
+                                <td style="font-size:.78rem;color:var(--text-dim);white-space:nowrap;">
+                                    ${t.scheduled_at && t.status === 'READY' ? `<div class="schedule-info">&#128337; ${new Date(t.scheduled_at).toLocaleString()}</div>` : ''}
+                                    ${t.posted_at ? new Date(t.posted_at).toLocaleDateString() : new Date(t.created_at).toLocaleDateString()}
+                                </td>
+                                <td style="white-space:nowrap;">
+                                    ${t.status === 'FAILED' || hasFailedPlatform(t) ? `<button class="btn-sm btn-retry" onclick="retryTool(${t.id})">&#x21BB; Retry</button> ` : ''}
+                                    <button class="btn-sm btn-delete" onclick="deleteTool(${t.id},'${esc(t.tool_name)}')">&#x2715;</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+        } catch (err) { console.error('Failed to load tools:', err); }
+    }
+
+    function hasFailedPlatform(t) {
+        return [t.linkedin_status,t.instagram_status,t.facebook_status,t.youtube_status,t.x_status].includes('FAILED');
+    }
+
+    function platformBadge(status) {
+        const cls = status === 'SUCCESS' ? 'success' : status === 'FAILED' ? 'failed' : status === 'SKIPPED' ? 'skipped' : 'pending';
+        return `<span class="badge badge-${cls}">${status}</span>`;
+    }
+
+    function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // ── Retry tool ────────────────────────────────────────────
+    async function retryTool(id) {
+        try {
+            const res = await fetch(`${API_BASE}/api/tools/${id}/retry`, { method: 'POST', headers: authHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Retry failed');
+            showToast(`Retrying ${data.platforms_reset} failed platform(s)...`);
+            loadTools();
+        } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // ── Delete tool ───────────────────────────────────────────
+    async function deleteTool(id, name) {
+        if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+        try {
+            const res = await fetch(`${API_BASE}/api/tools/${id}`, { method: 'DELETE', headers: authHeaders() });
+            if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Delete failed'); }
+            showToast(`"${name}" deleted.`);
+            loadTools();
+        } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // ── Bulk upload ───────────────────────────────────────────
+    async function bulkUpload() {
+        const btn = document.getElementById('bulkBtn');
+        const resultDiv = document.getElementById('bulkResult');
+        const raw = document.getElementById('bulkJson').value.trim();
+        if (!raw) { showToast('Paste your JSON array first.', 'error'); return; }
+        let tools;
+        try { tools = JSON.parse(raw); } catch { showToast('Invalid JSON. Check your syntax.', 'error'); return; }
+        if (!Array.isArray(tools)) { showToast('JSON must be an array of objects.', 'error'); return; }
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Uploading...';
+        try {
+            const res = await fetch(`${API_BASE}/api/tools/bulk`, {
+                method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(tools)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Bulk upload failed');
+            let html = `<span style="color:var(--green);font-weight:700;">&#x2714; ${data.total} tool(s) created successfully.</span>`;
+            if (data.errors && data.errors.length) {
+                html += `<br><span style="color:var(--red);">${data.errors.length} error(s):</span><ul style="margin-top:.3rem;padding-left:1rem;">`;
+                data.errors.forEach(e => { html += `<li style="color:var(--red);font-size:.78rem;">Row ${e.index}: ${e.error}</li>`; });
+                html += '</ul>';
             }
-        }
+            resultDiv.innerHTML = html;
+            showToast(`${data.total} tool(s) uploaded!`);
+            loadTools();
+        } catch (err) { showToast(err.message, 'error'); }
+        finally { btn.disabled = false; btn.innerHTML = 'Upload All Tools'; }
+    }
 
-        // Periodic health check (every 60s once in app)
-        setInterval(async () => {
-            if (!serverOnline) return;
-            const ok = await checkServer();
-            updateServerBar(ok);
-        }, 60000);
-
-        // ── Video toggle ──────────────────────────────────────
-        function toggleVideo(mode) {
-            document.getElementById('btnUrl').classList.toggle('active', mode === 'url');
-            document.getElementById('btnUpload').classList.toggle('active', mode === 'upload');
-            document.getElementById('urlGroup').style.display = mode === 'url' ? 'block' : 'none';
-            document.getElementById('uploadGroup').style.display = mode === 'upload' ? 'block' : 'none';
-            if (mode === 'url') document.getElementById('video_file').value = '';
-            if (mode === 'upload') document.getElementById('video_url').value = '';
-        }
-
-        // ── Drop zone ─────────────────────────────────────────
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('video_file');
-        const fileNameEl = document.getElementById('fileName');
-
-        dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-        dropZone.addEventListener('drop', e => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            if (e.dataTransfer.files.length) {
-                fileInput.files = e.dataTransfer.files;
-                fileNameEl.textContent = e.dataTransfer.files[0].name;
-            }
-        });
-        fileInput.addEventListener('change', () => {
-            fileNameEl.textContent = fileInput.files.length ? fileInput.files[0].name : '';
-        });
-
-        // ── Toast ─────────────────────────────────────────────
-        function showToast(msg, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.className = `toast ${type} show`;
-            setTimeout(() => toast.classList.remove('show'), 3500);
-        }
-
-        // ── Submit form ───────────────────────────────────────
-        document.getElementById('toolForm').addEventListener('submit', async e => {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Submitting...';
-
-            try {
-                const fd = new FormData();
-
-                const toolName = document.getElementById('tool_name').value.trim();
-                if (!toolName) throw new Error('Tool name is required.');
-                fd.append('tool_name', toolName);
-
-                const handle = document.getElementById('handle').value.trim();
-                if (handle) fd.append('handle', handle);
-
-                const desc = document.getElementById('description').value.trim();
-                if (desc) fd.append('description', desc);
-
-                const website = document.getElementById('website').value.trim();
-                if (website) fd.append('website', website);
-
-                const videoUrl = document.getElementById('video_url').value.trim();
-                const videoFile = document.getElementById('video_file').files[0];
-
-                if (videoUrl) {
-                    fd.append('video_url', videoUrl);
-                } else if (videoFile) {
-                    fd.append('video_file', videoFile);
-                } else {
-                    throw new Error('Provide a video URL or upload a video file.');
-                }
-
-                // Optional schedule
-                const schedVal = document.getElementById('scheduled_at').value;
-                if (schedVal) {
-                    // datetime-local gives "YYYY-MM-DDTHH:MM" — append :00Z for ISO
-                    fd.append('scheduled_at', schedVal + ':00Z');
-                }
-
-                const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd, headers: authHeaders() });
-                const data = await res.json();
-
-                if (!res.ok) throw new Error(data.detail || 'Submission failed');
-
-                showToast(`"${data.tool_name}" queued for posting!`);
-                e.target.reset();
-                fileNameEl.textContent = '';
-                toggleVideo('url');
-                loadTools();
-            } catch (err) {
-                showToast(err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = 'Submit & Queue for Posting';
-            }
-        });
-
-        // ── Load tools list ───────────────────────────────────
-        async function loadTools() {
-            try {
-                const res = await fetch(`${API_BASE}/api/tools`, { headers: authHeaders() });
-                const tools = await res.json();
-                const container = document.getElementById('toolsContainer');
-
-                if (!tools.length) {
-                    container.innerHTML = `<div class="empty-state"><div class="icon">&#x1F4E6;</div><p>No tools submitted yet</p></div>`;
-                    return;
-                }
-
-                container.innerHTML = `
+    // ── Analytics ─────────────────────────────────────────────
+    async function loadAnalytics() {
+        const container = document.getElementById('analyticsContent');
+        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Loading analytics...</div>';
+        try {
+            const res = await fetch(`${API_BASE}/api/analytics`, { headers: authHeaders() });
+            const d = await res.json();
+            if (!res.ok) throw new Error('Failed to load analytics');
+            container.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-value">${d.total}</div><div class="stat-label">Total Tools</div></div>
+                    <div class="stat-card"><div class="stat-value">${d.posted}</div><div class="stat-label">Posted</div></div>
+                    <div class="stat-card"><div class="stat-value">${d.failed}</div><div class="stat-label">Failed</div></div>
+                    <div class="stat-card"><div class="stat-value">${d.ready}</div><div class="stat-label">In Queue</div></div>
+                    <div class="stat-card"><div class="stat-value">${d.success_rate}%</div><div class="stat-label">Success Rate</div></div>
+                </div>
+                <h3 style="font-size:.95rem;font-weight:700;margin-bottom:1rem;">Platform Performance</h3>
+                ${Object.entries(d.platforms).map(([name, s]) => `
+                    <div class="platform-bar">
+                        <span class="p-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
+                        <div class="progress-track"><div class="progress-fill" style="width:${s.success_rate}%"></div></div>
+                        <span class="p-rate" style="color:${s.success_rate > 70 ? 'var(--green)' : s.success_rate > 30 ? 'var(--amber)' : 'var(--red)'}">${s.success_rate}%</span>
+                        <span style="font-size:.72rem;color:var(--text-dim);">${s.success}&#x2714; ${s.failed}&#x2718; ${s.skipped}&#x23ED;</span>
+                    </div>
+                `).join('')}
+                ${d.recent.length ? `
+                    <h3 style="font-size:.95rem;font-weight:700;margin:1.5rem 0 1rem;">Recent Posts</h3>
                     <table class="tool-table">
-                        <thead><tr>
-                            <th>Tool</th>
-                            <th>Status</th>
-                            <th>Platforms</th>
-                            <th>Date</th>
-                        </tr></thead>
-                        <tbody>
-                            ${tools.map(t => `
-                                <tr>
-                                    <td>
-                                        <strong>${esc(t.tool_name)}</strong>
-                                        ${t.website ? `<br><a href="${esc(t.website)}" target="_blank" style="color:var(--accent);font-size:.75rem;text-decoration:none;">${esc(t.website)}</a>` : ''}
-                                    </td>
-                                    <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>
-                                    <td>
-                                        <div class="platform-detail">
-                                            <div class="p-row"><span class="p-label">YT</span> ${platformBadge('YouTube', t.youtube_status)}</div>
-                                            <div class="p-row"><span class="p-label">X</span> ${platformBadge('X', t.x_status)}</div>
-                                            <div class="p-row"><span class="p-label">LI</span> ${platformBadge('LinkedIn', t.linkedin_status)}</div>
-                                            <div class="p-row"><span class="p-label">IG</span> ${platformBadge('Instagram', t.instagram_status)}</div>
-                                            <div class="p-row"><span class="p-label">FB</span> ${platformBadge('Facebook', t.facebook_status)}</div>
-                                        </div>
-                                    </td>
-                                    <td style="font-size:.78rem;color:var(--text-dim);white-space:nowrap;">
-                                        ${t.scheduled_at && t.status === 'READY'
-                                            ? `<div class="schedule-info">&#128337; ${new Date(t.scheduled_at).toLocaleString()}</div>`
-                                            : ''}
-                                        ${t.posted_at ? new Date(t.posted_at).toLocaleDateString() : new Date(t.created_at).toLocaleDateString()}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
+                        <thead><tr><th>Tool</th><th>Posted</th><th>Platforms</th></tr></thead>
+                        <tbody>${d.recent.map(t => `
+                            <tr>
+                                <td><strong>${esc(t.tool_name)}</strong></td>
+                                <td style="font-size:.78rem;color:var(--text-dim);">${t.posted_at ? new Date(t.posted_at).toLocaleDateString() : '-'}</td>
+                                <td style="font-size:.75rem;">
+                                    ${['linkedin','instagram','facebook','youtube','x'].map(p => {
+                                        const st = t[p+'_status'];
+                                        return st === 'SUCCESS' ? `<span style="color:var(--green);">${p.slice(0,2).toUpperCase()}&#x2714;</span>` :
+                                               st === 'FAILED' ? `<span style="color:var(--red);">${p.slice(0,2).toUpperCase()}&#x2718;</span>` : '';
+                                    }).join(' ')}
+                                </td>
+                            </tr>
+                        `).join('')}</tbody>
                     </table>
-                `;
-            } catch (err) {
-                console.error('Failed to load tools:', err);
-            }
-        }
+                ` : ''}
+            `;
+        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load analytics.</div>`; }
+    }
 
-        function platformBadge(label, status) {
-            const cls = status === 'SUCCESS' ? 'success'
-                : status === 'FAILED' ? 'failed'
-                    : status === 'SKIPPED' ? 'skipped'
-                        : 'pending';
-            return `<span class="badge badge-${cls}">${status}</span>`;
-        }
+    // ── Token Health ──────────────────────────────────────────
+    async function loadTokenHealth() {
+        const container = document.getElementById('healthContent');
+        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Checking tokens...</div>';
+        try {
+            const res = await fetch(`${API_BASE}/api/health/tokens`, { headers: authHeaders() });
+            const d = await res.json();
+            if (!res.ok) throw new Error('Failed to load token health');
+            const cards = [];
+            // Meta
+            const meta = d.meta || {};
+            if (meta.configured) {
+                const color = meta.valid ? (meta.days_left > 14 ? 'var(--green)' : meta.days_left > 3 ? 'var(--amber)' : 'var(--red)') : 'var(--red)';
+                cards.push(`<div class="token-card" style="border-left:3px solid ${color}">
+                    <h3><span style="color:${color};">&#x25CF;</span> Meta (IG + FB)</h3>
+                    <div class="token-status" style="color:${color}">${meta.valid ? '&#x2714; Valid' : '&#x2718; Invalid'}</div>
+                    ${meta.days_left != null ? `<div class="token-detail">Expires in <strong style="color:${color};">${meta.days_left} days</strong> (${new Date(meta.expires_at).toLocaleDateString()})</div>` : ''}
+                    ${meta.scopes ? `<div class="token-detail" style="margin-top:.3rem;">Scopes: ${meta.scopes.join(', ')}</div>` : ''}
+                    ${meta.error ? `<div class="token-detail" style="color:var(--red);">${meta.error}</div>` : ''}
+                </div>`);
+            } else { cards.push(`<div class="token-card" style="border-left:3px solid var(--text-dim)"><h3>&#x25CB; Meta (IG + FB)</h3><div class="token-status" style="color:var(--text-dim)">Not configured</div></div>`); }
 
-        function esc(s) {
-            if (!s) return '';
-            const d = document.createElement('div');
-            d.textContent = s;
-            return d.innerHTML;
-        }
+            // Other platforms
+            ['linkedin','youtube','x','discord','telegram','gemini'].forEach(name => {
+                const p = d[name] || {};
+                const label = name === 'x' ? 'X (Twitter)' : name === 'gemini' ? 'Gemini AI' : name.charAt(0).toUpperCase()+name.slice(1);
+                const color = p.configured ? 'var(--green)' : 'var(--text-dim)';
+                cards.push(`<div class="token-card" style="border-left:3px solid ${color}">
+                    <h3><span style="color:${color};">${p.configured ? '&#x25CF;' : '&#x25CB;'}</span> ${label}</h3>
+                    <div class="token-status" style="color:${color}">${p.configured ? '&#x2714; Configured' : 'Not configured'}</div>
+                </div>`);
+            });
 
-        // Auto-refresh every 30 seconds
-        setInterval(loadTools, 30000);
+            container.innerHTML = `<div class="token-grid">${cards.join('')}</div>`;
+        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load token health.</div>`; }
+    }
+
+    // ── Auto-refresh ──────────────────────────────────────────
+    setInterval(loadTools, 30000);
     </script>
 </body>
-
 </html>

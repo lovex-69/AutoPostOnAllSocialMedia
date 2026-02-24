@@ -36,6 +36,8 @@ def run_migrations() -> None:
     _migrations = [
         # (table, column, SQL type)
         ("ai_tools", "scheduled_at", "TIMESTAMPTZ"),
+        ("ai_tools", "error_log", "TEXT"),
+        ("ai_tools", "facebook_status", "VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in _migrations:

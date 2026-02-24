@@ -34,6 +34,9 @@ class AITool(Base):
     youtube_status: str = Column(String(20), default="PENDING", nullable=False)
     x_status: str = Column(String(20), default="PENDING", nullable=False)
 
+    # ── Error log — stores last error details per platform ────────────────
+    error_log: str | None = Column(Text, nullable=True)
+
     created_at: datetime = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

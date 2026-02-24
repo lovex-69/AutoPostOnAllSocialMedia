@@ -27,6 +27,7 @@ from app.services.instagram_service import post_to_instagram
 from app.services.facebook_service import post_to_facebook
 from app.services.youtube_service import post_to_youtube
 from app.services.x_service import post_to_x
+from app.services.notification_service import notify_success, notify_failure
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -185,15 +186,30 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
                 "Tool %d posted to %d/%d platforms (%d skipped).",
                 tool.id, success_count, attempted, 5 - attempted,
             )
+            notify_success(tool.tool_name, tool.id, {
+                "LinkedIn": tool.linkedin_status,
+                "Instagram": tool.instagram_status,
+                "Facebook": tool.facebook_status,
+                "YouTube": tool.youtube_status,
+                "X": tool.x_status,
+            })
         elif attempted == 0:
             tool.status = "FAILED"
             logger.warning(
                 "Tool %d: no platforms are configured. Check your .env credentials.",
                 tool.id,
             )
+            notify_failure(tool.tool_name, tool.id, {}, "No platforms configured.")
         else:
             tool.status = "FAILED"
             logger.warning("Tool %d failed on all %d attempted platforms.", tool.id, attempted)
+            notify_failure(tool.tool_name, tool.id, {
+                "LinkedIn": tool.linkedin_status,
+                "Instagram": tool.instagram_status,
+                "Facebook": tool.facebook_status,
+                "YouTube": tool.youtube_status,
+                "X": tool.x_status,
+            })
 
         db.commit()
 
