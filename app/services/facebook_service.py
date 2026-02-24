@@ -3,12 +3,14 @@ Facebook Reels service — publish a Reel (or video) to a Facebook Page via
 the Meta Graph API.
 
 Flow:
-  1. Initiate an upload session for a Resumable Upload.
-  2. Upload the video binary.
-  3. Create a Reel (or video post) with the uploaded file handle.
+  1. Exchange the user access token for a Page Access Token.
+  2. Initiate an upload session for a Resumable Upload.
+  3. Upload the video binary.
+  4. Finish the upload and publish the Reel.
 
 Uses the same META_ACCESS_TOKEN as Instagram (the token must have
 ``pages_manage_posts`` and ``pages_read_engagement`` permissions).
+The user token is automatically exchanged for a Page token at runtime.
 
 Ref: https://developers.facebook.com/docs/video-api/guides/reels-publishing
 """
@@ -25,22 +27,54 @@ logger = get_logger(__name__)
 
 GRAPH_URL = "https://graph.facebook.com/v19.0"
 
+# Cache the page token so we don't fetch it on every post
+_page_token_cache: str | None = None
+
+
+def _get_page_access_token() -> str:
+    """Exchange the user access token for a Page Access Token.
+
+    The Graph API requires a Page token (not a user token) to publish
+    content on behalf of a Page.
+    """
+    global _page_token_cache
+    if _page_token_cache:
+        return _page_token_cache
+
+    page_id = settings.FACEBOOK_PAGE_ID
+    resp = requests.get(
+        f"{GRAPH_URL}/me/accounts",
+        params={
+            "fields": "id,access_token",
+            "access_token": settings.META_ACCESS_TOKEN,
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
+
+    for page in resp.json().get("data", []):
+        if page["id"] == page_id:
+            _page_token_cache = page["access_token"]
+            logger.info("Facebook: obtained Page Access Token for page %s", page_id)
+            return _page_token_cache
+
+    raise RuntimeError(
+        f"Facebook: Page {page_id} not found in /me/accounts. "
+        "Check that the user token has pages_manage_posts permission for this page."
+    )
+
 
 def _upload_video_to_facebook(video_path: str) -> str:
-    """Upload a video file to Facebook and return the file handle.
-
-    Uses the Resumable Upload API so that large files are supported.
-    """
+    """Upload a video file to Facebook and return the video_id."""
     page_id = settings.FACEBOOK_PAGE_ID
-    access_token = settings.META_ACCESS_TOKEN
+    page_token = _get_page_access_token()
     file_size = os.path.getsize(video_path)
-    file_name = os.path.basename(video_path)
 
     # Step 1 — Start an upload session
     start_url = f"{GRAPH_URL}/{page_id}/video_reels"
     start_params = {
         "upload_phase": "start",
-        "access_token": access_token,
+        "access_token": page_token,
     }
     resp = requests.post(start_url, data=start_params, timeout=30)
     resp.raise_for_status()
@@ -50,7 +84,7 @@ def _upload_video_to_facebook(video_path: str) -> str:
     # Step 2 — Upload binary
     upload_url = f"{GRAPH_URL}/{video_id}"
     headers = {
-        "Authorization": f"OAuth {access_token}",
+        "Authorization": f"OAuth {page_token}",
         "offset": "0",
         "file_size": str(file_size),
     }
@@ -70,7 +104,7 @@ def _upload_video_to_facebook(video_path: str) -> str:
 def _publish_reel(video_id: str, caption: str) -> None:
     """Finish the upload and publish the Reel on the Page."""
     page_id = settings.FACEBOOK_PAGE_ID
-    access_token = settings.META_ACCESS_TOKEN
+    page_token = _get_page_access_token()
 
     url = f"{GRAPH_URL}/{page_id}/video_reels"
     params = {
@@ -78,7 +112,7 @@ def _publish_reel(video_id: str, caption: str) -> None:
         "video_id": video_id,
         "title": caption[:255] if caption else "",
         "description": caption,
-        "access_token": access_token,
+        "access_token": page_token,
     }
     resp = requests.post(url, data=params, timeout=60)
     resp.raise_for_status()
