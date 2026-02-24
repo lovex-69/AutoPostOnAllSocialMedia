@@ -37,6 +37,9 @@ class AITool(Base):
     # ── Error log — stores last error details per platform ────────────────
     error_log: str | None = Column(Text, nullable=True)
 
+    # ── Video hash (SHA-256) for duplicate detection ──────────────────────
+    video_hash: str | None = Column(String(64), nullable=True, index=True)
+
     created_at: datetime = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

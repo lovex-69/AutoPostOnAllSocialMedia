@@ -10,7 +10,7 @@
     <style>
         /* ── Reset & Variables ─────────────────────────────── */
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        :root{--bg:#0b0e14;--surface:#131720;--surface-2:#1a1f2e;--border:#252b3b;--text:#e4e8f1;--text-dim:#8891a5;--accent:#6c63ff;--accent-glow:rgba(108,99,255,.35);--green:#34d399;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--radius:14px;--transition:.25s cubic-bezier(.4,0,.2,1)}
+        :root{--bg:#0b0e14;--surface:#131720;--surface-2:#1a1f2e;--border:#252b3b;--text:#e4e8f1;--text-dim:#8891a5;--accent:#6c63ff;--accent-glow:rgba(108,99,255,.35);--green:#34d399;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--orange:#fb923c;--radius:14px;--transition:.25s cubic-bezier(.4,0,.2,1)}
         body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
 
         /* ── Layout ───────────────────────────────────────── */
@@ -51,7 +51,7 @@
 
         /* ── Grid ─────────────────────────────────────────── */
         .grid{display:grid;grid-template-columns:1fr 1.3fr;gap:2rem;align-items:start}
-        @media(max-width:800px){.grid{grid-template-columns:1fr}}
+        @media(max-width:860px){.grid{grid-template-columns:1fr}.card.tools-list{order:-1}}
 
         /* ── Card ─────────────────────────────────────────── */
         .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.8rem;transition:border-color var(--transition)}
@@ -90,12 +90,15 @@
         .btn-delete:hover{background:rgba(248,113,113,.25)}
         .btn-refresh{background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);padding:.3rem .7rem;border-radius:8px;cursor:pointer;font-size:.8rem;transition:all var(--transition)}
         .btn-refresh:hover{border-color:var(--accent);color:var(--text)}
+        .btn-export{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.3);padding:.4rem .9rem;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:600;transition:all var(--transition)}
+        .btn-export:hover{background:rgba(52,211,153,.25)}
 
         /* ── Toast ────────────────────────────────────────── */
-        .toast{position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;border-radius:12px;font-size:.9rem;font-weight:600;color:#fff;transform:translateY(120%);opacity:0;transition:all .35s ease;z-index:999}
+        .toast{position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;border-radius:12px;font-size:.9rem;font-weight:600;color:#fff;transform:translateY(120%);opacity:0;transition:all .35s ease;z-index:999;max-width:400px}
         .toast.show{transform:translateY(0);opacity:1}
         .toast.success{background:linear-gradient(135deg,#059669,#34d399)}
         .toast.error{background:linear-gradient(135deg,#dc2626,#f87171)}
+        .toast.warning{background:linear-gradient(135deg,#d97706,#fbbf24);color:#000}
 
         /* ── Table ────────────────────────────────────────── */
         .tools-list h2{margin-bottom:1rem}
@@ -147,10 +150,79 @@
         /* ── Bulk upload ──────────────────────────────────── */
         .bulk-area textarea{min-height:200px;font-family:'Courier New',monospace;font-size:.82rem}
 
+        /* ── Warning modal ────────────────────────────────── */
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:900;opacity:0;pointer-events:none;transition:opacity .3s ease}
+        .modal-overlay.show{opacity:1;pointer-events:all}
+        .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;transform:scale(.9);transition:transform .3s ease}
+        .modal-overlay.show .modal{transform:scale(1)}
+        .modal h3{font-size:1.1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+
+        /* ── Warning items ────────────────────────────────── */
+        .warning-list{list-style:none;margin-bottom:1.5rem}
+        .warning-item{padding:.8rem 1rem;border-radius:10px;margin-bottom:.6rem;font-size:.85rem;line-height:1.5;display:flex;gap:.6rem;align-items:flex-start}
+        .warning-item.severity-warning{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);color:var(--amber)}
+        .warning-item.severity-info{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);color:var(--blue)}
+        .warning-item.severity-error{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:var(--red)}
+        .warning-icon{font-size:1.2rem;flex-shrink:0;margin-top:.1rem}
+        .warning-text{flex:1}
+
+        /* ── Video info card ──────────────────────────────── */
+        .video-info{background:var(--surface-2);border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:.82rem}
+        .video-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem}
+        .video-info-label{color:var(--text-dim);font-weight:600}
+        .video-info-value{color:var(--text)}
+
+        /* ── Queue estimate ───────────────────────────────── */
+        .queue-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .8rem;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.25);border-radius:8px;font-size:.78rem;color:var(--accent);font-weight:600;margin-top:.5rem}
+
+        /* ── Platform limits ──────────────────────────────── */
+        .limits-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem;margin-top:1rem}
+        .limit-card{background:var(--surface-2);border-radius:10px;padding:.8rem 1rem;font-size:.8rem}
+        .limit-card h4{font-size:.85rem;font-weight:700;margin-bottom:.4rem;color:var(--text)}
+        .limit-row{display:flex;justify-content:space-between;color:var(--text-dim);padding:.15rem 0}
+        .limit-value{color:var(--text);font-weight:600}
+
+        /* ── Schedule suggestions ─────────────────────────── */
+        .suggest-list{list-style:none;margin-top:1rem}
+        .suggest-item{display:flex;align-items:center;gap:.8rem;padding:.7rem 1rem;background:var(--surface-2);border-radius:10px;margin-bottom:.5rem;font-size:.82rem;cursor:pointer;transition:all var(--transition);border:1px solid transparent}
+        .suggest-item:hover{border-color:var(--accent);background:rgba(108,99,255,.06)}
+        .suggest-item.prime{border-left:3px solid var(--green)}
+        .suggest-time{font-weight:700;min-width:120px}
+        .suggest-platform{color:var(--accent);font-weight:600;min-width:80px}
+        .suggest-reason{color:var(--text-dim);flex:1}
+
+        /* ── Modal buttons ────────────────────────────────── */
+        .modal-actions{display:flex;gap:.8rem;justify-content:flex-end;flex-wrap:wrap}
+        .btn-cancel{padding:.7rem 1.5rem;font-size:.88rem;font-weight:600;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--surface-2);color:var(--text-dim);transition:all var(--transition)}
+        .btn-cancel:hover{border-color:var(--red);color:var(--red)}
+        .btn-confirm{padding:.7rem 1.5rem;font-size:.88rem;font-weight:700;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;transition:all var(--transition)}
+        .btn-confirm:hover{transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow)}
+        .btn-confirm:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+
         /* ── Spinner ──────────────────────────────────────── */
         .spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:.4rem}
         .spinner.sm{width:14px;height:14px;border-width:2px;margin:0}
         @keyframes spin{to{transform:rotate(360deg)}}
+
+        /* ── Mobile responsive ────────────────────────────── */
+        @media(max-width:600px){
+            .app{padding:1rem .8rem 3rem}
+            header h1{font-size:1.6rem}
+            .tab-bar{gap:.3rem}
+            .tab-btn{padding:.4rem .7rem;font-size:.75rem}
+            .card{padding:1.2rem}
+            .stats-grid{grid-template-columns:repeat(2,1fr)}
+            .token-grid{grid-template-columns:1fr}
+            .limits-grid{grid-template-columns:1fr}
+            .modal{padding:1.2rem;width:95%}
+            .modal-actions{flex-direction:column}
+            .modal-actions button{width:100%}
+            .tool-table{font-size:.73rem}
+            .tool-table th,.tool-table td{padding:.4rem .3rem}
+            .platform-detail{grid-template-columns:1fr}
+            .suggest-item{flex-wrap:wrap;gap:.4rem}
+            .suggest-time{min-width:auto}
+        }
     </style>
 </head>
 <body>
@@ -168,6 +240,18 @@
                 Checking server status...
             </div>
             <button class="gate-btn" id="gateBtn" onclick="wakeServer()">Unlock &amp; Wake Up Server</button>
+        </div>
+    </div>
+
+    <!-- ── Warning / Confirmation Modal ───────────────────── -->
+    <div class="modal-overlay" id="warningModal">
+        <div class="modal">
+            <h3 id="modalTitle">&#x26A0;&#xFE0F; Review Before Posting</h3>
+            <div id="modalBody"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" id="modalConfirmBtn" onclick="confirmSubmit()">Post Anyway</button>
+            </div>
         </div>
     </div>
 
@@ -190,8 +274,10 @@
         <div class="tab-bar">
             <button class="tab-btn active" data-tab="postTab" onclick="switchTab('postTab',this)">&#x1F4E4; Post</button>
             <button class="tab-btn" data-tab="analyticsTab" onclick="switchTab('analyticsTab',this)">&#x1F4CA; Analytics</button>
-            <button class="tab-btn" data-tab="bulkTab" onclick="switchTab('bulkTab',this)">&#x1F4E6; Bulk Upload</button>
-            <button class="tab-btn" data-tab="healthTab" onclick="switchTab('healthTab',this)">&#x1F6E1; Token Health</button>
+            <button class="tab-btn" data-tab="bulkTab" onclick="switchTab('bulkTab',this)">&#x1F4E6; Bulk</button>
+            <button class="tab-btn" data-tab="healthTab" onclick="switchTab('healthTab',this)">&#x1F6E1; Health</button>
+            <button class="tab-btn" data-tab="limitsTab" onclick="switchTab('limitsTab',this)">&#x1F4CF; Limits</button>
+            <button class="tab-btn" data-tab="scheduleTab" onclick="switchTab('scheduleTab',this)">&#x1F552; Schedule</button>
         </div>
 
         <!-- ═══════════ POST TAB ═══════════ -->
@@ -233,14 +319,16 @@
                                 <div class="icon-upload">&#8679;</div>
                                 <div>Drag &amp; drop MP4 here or <strong>click to browse</strong></div>
                                 <div class="file-name" id="fileName"></div>
-                                <input type="file" id="video_file" accept="video/mp4" />
+                                <input type="file" id="video_file" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" />
                             </div>
+                            <!-- Client-side video preview -->
+                            <div id="clientVideoInfo" style="display:none;margin-top:.6rem;"></div>
                         </div>
 
                         <div class="form-group">
                             <label for="scheduled_at">Schedule (optional)</label>
                             <input type="datetime-local" id="scheduled_at" name="scheduled_at" style="color-scheme:dark;" />
-                            <div style="font-size:.7rem;color:var(--text-dim);margin-top:.25rem;">Leave empty to post immediately on next scheduler cycle.</div>
+                            <div style="font-size:.7rem;color:var(--text-dim);margin-top:.25rem;">Leave empty to post immediately. <a href="#" onclick="event.preventDefault();switchTab('scheduleTab',document.querySelector('[data-tab=scheduleTab]'))" style="color:var(--accent);">See best times &#x2192;</a></div>
                         </div>
 
                         <button type="submit" class="btn-submit" id="submitBtn">Submit &amp; Queue for Posting</button>
@@ -263,7 +351,10 @@
         <!-- ═══════════ ANALYTICS TAB ═══════════ -->
         <div class="tab-content" id="analyticsTab">
             <div class="card">
-                <h2><span class="icon">&#x1F4CA;</span> Posting Analytics</h2>
+                <h2 style="justify-content:space-between;">
+                    <span><span class="icon">&#x1F4CA;</span> Posting Analytics</span>
+                    <button class="btn-export" onclick="exportCSV()">&#x1F4E5; Export CSV</button>
+                </h2>
                 <div id="analyticsContent">
                     <div class="empty-state"><span class="spinner sm"></span> Loading analytics...</div>
                 </div>
@@ -298,6 +389,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- ═══════════ PLATFORM LIMITS TAB ═══════════ -->
+        <div class="tab-content" id="limitsTab">
+            <div class="card">
+                <h2><span class="icon">&#x1F4CF;</span> Platform Video Limits</h2>
+                <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:.5rem;">Maximum duration and file size limits per platform. Videos exceeding these limits may be rejected.</p>
+                <div id="limitsContent">
+                    <div class="empty-state"><span class="spinner sm"></span> Loading limits...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════ SMART SCHEDULE TAB ═══════════ -->
+        <div class="tab-content" id="scheduleTab">
+            <div class="card">
+                <h2><span class="icon">&#x1F552;</span> Smart Scheduling</h2>
+                <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:.5rem;">AI-recommended optimal posting times based on platform engagement research. Click a suggestion to auto-fill the schedule.</p>
+                <div id="scheduleContent">
+                    <div class="empty-state"><span class="spinner sm"></span> Computing best times...</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Toast -->
@@ -309,6 +422,7 @@
     // CONFIG
     // ═══════════════════════════════════════════════════════════
     const API_BASE = window.EXECUTION_API_URL || '';
+    let _pendingFormData = null;
 
     // ── Auth helpers ──────────────────────────────────────────
     function getAuthKey() { return sessionStorage.getItem('ep_auth_key') || ''; }
@@ -393,6 +507,8 @@
         btn.classList.add('active');
         if (tabId === 'analyticsTab') loadAnalytics();
         if (tabId === 'healthTab') loadTokenHealth();
+        if (tabId === 'limitsTab') loadPlatformLimits();
+        if (tabId === 'scheduleTab') loadScheduleSuggestions();
     }
 
     // ── Video toggle ──────────────────────────────────────────
@@ -401,7 +517,7 @@
         document.getElementById('btnUpload').classList.toggle('active', mode === 'upload');
         document.getElementById('urlGroup').style.display = mode === 'url' ? 'block' : 'none';
         document.getElementById('uploadGroup').style.display = mode === 'upload' ? 'block' : 'none';
-        if (mode === 'url') document.getElementById('video_file').value = '';
+        if (mode === 'url') { document.getElementById('video_file').value = ''; document.getElementById('clientVideoInfo').style.display = 'none'; }
         if (mode === 'upload') document.getElementById('video_url').value = '';
     }
 
@@ -412,23 +528,158 @@
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; fileNameEl.textContent = e.dataTransfer.files[0].name; } });
-    fileInput.addEventListener('change', () => { fileNameEl.textContent = fileInput.files.length ? fileInput.files[0].name : ''; });
+    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; onFileSelected(e.dataTransfer.files[0]); } });
+    fileInput.addEventListener('change', () => { if (fileInput.files.length) onFileSelected(fileInput.files[0]); });
+
+    function onFileSelected(file) {
+        fileNameEl.textContent = file.name;
+        const infoEl = document.getElementById('clientVideoInfo');
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        let html = `<div class="video-info"><div class="video-info-grid">`;
+        html += `<span class="video-info-label">File:</span><span class="video-info-value">${esc(file.name)}</span>`;
+        html += `<span class="video-info-label">Size:</span><span class="video-info-value">${sizeMB} MB</span>`;
+        html += `<span class="video-info-label">Type:</span><span class="video-info-value">${file.type || 'unknown'}</span>`;
+        html += `</div>`;
+
+        // Client-side size warnings
+        const warnings = [];
+        if (parseFloat(sizeMB) > 512) warnings.push(`File is ${sizeMB}MB — may exceed X/Twitter's 512MB limit`);
+        if (parseFloat(sizeMB) > 200) warnings.push(`File is ${sizeMB}MB — may exceed LinkedIn's 200MB limit`);
+        if (!file.type.includes('mp4') && !file.type.includes('video')) warnings.push(`File type "${file.type}" — MP4 is recommended`);
+
+        if (warnings.length) {
+            html += `<div style="margin-top:.5rem;">`;
+            warnings.forEach(w => { html += `<div style="color:var(--amber);font-size:.78rem;">&#x26A0; ${w}</div>`; });
+            html += `</div>`;
+        }
+
+        // HTML5 video element for duration
+        const videoEl = document.createElement('video');
+        videoEl.preload = 'metadata';
+        videoEl.onloadedmetadata = () => {
+            const dur = videoEl.duration;
+            if (dur && isFinite(dur)) {
+                const durStr = dur < 60 ? `${dur.toFixed(1)}s` : `${Math.floor(dur/60)}m ${Math.floor(dur%60)}s`;
+                const durLine = document.createElement('div');
+                durLine.style.cssText = 'margin-top:.3rem;';
+                let durHtml = `<span class="video-info-label">Duration:</span> <span class="video-info-value">${durStr}</span>`;
+                if (dur > 90) durHtml += `<div style="color:var(--amber);font-size:.78rem;margin-top:.2rem;">&#x26A0; Video is ${durStr} — exceeds Reels limits (90s) and Shorts limit (60s)</div>`;
+                else if (dur > 60) durHtml += `<div style="color:var(--amber);font-size:.78rem;margin-top:.2rem;">&#x26A0; Video is ${durStr} — exceeds YouTube Shorts 60s limit</div>`;
+                durLine.innerHTML = durHtml;
+                infoEl.querySelector('.video-info').appendChild(durLine);
+            }
+            URL.revokeObjectURL(videoEl.src);
+        };
+        videoEl.src = URL.createObjectURL(file);
+
+        html += `</div>`;
+        infoEl.innerHTML = html;
+        infoEl.style.display = 'block';
+    }
 
     // ── Toast ─────────────────────────────────────────────────
     function showToast(msg, type = 'success') {
         const toast = document.getElementById('toast');
         toast.textContent = msg;
         toast.className = `toast ${type} show`;
-        setTimeout(() => toast.classList.remove('show'), 3500);
+        setTimeout(() => toast.classList.remove('show'), 4000);
     }
 
-    // ── Submit form ───────────────────────────────────────────
+    // ── Warning Modal ─────────────────────────────────────────
+    function showWarningModal(data) {
+        const modal = document.getElementById('warningModal');
+        const body = document.getElementById('modalBody');
+        let html = '';
+
+        // Video info
+        if (data.video_info && Object.keys(data.video_info).length) {
+            const vi = data.video_info;
+            const durStr = vi.duration_sec < 60 ? `${vi.duration_sec}s` : `${Math.floor(vi.duration_sec/60)}m ${Math.floor(vi.duration_sec%60)}s`;
+            html += `<div class="video-info"><strong style="font-size:.82rem;">Video Details</strong><div class="video-info-grid" style="margin-top:.4rem;">`;
+            html += `<span class="video-info-label">Duration</span><span class="video-info-value">${durStr}</span>`;
+            html += `<span class="video-info-label">Size</span><span class="video-info-value">${vi.size_mb} MB</span>`;
+            html += `<span class="video-info-label">Resolution</span><span class="video-info-value">${vi.width}x${vi.height}</span>`;
+            html += `<span class="video-info-label">Codec</span><span class="video-info-value">${vi.codec}</span>`;
+            html += `<span class="video-info-label">Orientation</span><span class="video-info-value">${vi.is_vertical ? 'Vertical (9:16) &#x2705;' : 'Landscape — not ideal'}</span>`;
+            html += `</div></div>`;
+        }
+
+        // Warnings
+        if (data.warnings && data.warnings.length) {
+            html += `<ul class="warning-list">`;
+            data.warnings.forEach(w => {
+                const sev = w.severity || 'warning';
+                const icon = sev === 'warning' ? '&#x26A0;&#xFE0F;' : sev === 'error' ? '&#x1F6A8;' : '&#x2139;&#xFE0F;';
+                html += `<li class="warning-item severity-${sev}"><span class="warning-icon">${icon}</span><span class="warning-text">${esc(w.message)}</span></li>`;
+            });
+            html += `</ul>`;
+        }
+
+        // Duplicates
+        if (data.duplicates && data.duplicates.length) {
+            html += `<div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:.8rem;margin-bottom:1rem;">`;
+            html += `<strong style="color:var(--red);font-size:.85rem;">&#x1F504; Duplicate Content Detected</strong>`;
+            data.duplicates.forEach(d => {
+                html += `<div style="margin-top:.4rem;font-size:.8rem;color:var(--text-dim);">`;
+                html += `"${esc(d.existing_name)}" (#${d.existing_id}, ${d.existing_status}) — ${d.reasons.join(', ')}`;
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // Queue estimate
+        if (data.queue_estimate) {
+            html += `<div class="queue-badge">&#x1F4CB; ${esc(data.queue_estimate.message)}</div>`;
+        }
+
+        html += `<p style="color:var(--text-dim);font-size:.85rem;margin-top:1rem;">Still want to upload? Click <strong>"Post Anyway"</strong> to proceed.</p>`;
+
+        body.innerHTML = html;
+        modal.classList.add('show');
+    }
+
+    function closeModal() {
+        document.getElementById('warningModal').classList.remove('show');
+        _pendingFormData = null;
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = false;
+        btn.innerHTML = 'Submit &amp; Queue for Posting';
+    }
+
+    async function confirmSubmit() {
+        if (!_pendingFormData) return;
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner sm"></span> Posting...';
+
+        try {
+            _pendingFormData.append('force', 'true');
+            const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: _pendingFormData, headers: authHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Submission failed');
+            closeModal();
+            showToast(`"${data.tool_name}" queued for posting!`);
+            if (data.queue_estimate) setTimeout(() => showToast(data.queue_estimate.message, 'warning'), 500);
+            document.getElementById('toolForm').reset();
+            fileNameEl.textContent = '';
+            document.getElementById('clientVideoInfo').style.display = 'none';
+            toggleVideo('url');
+            loadTools();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Post Anyway';
+            _pendingFormData = null;
+        }
+    }
+
+    // ── Submit form (with smart validation) ───────────────────
     document.getElementById('toolForm').addEventListener('submit', async e => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Submitting...';
+        btn.innerHTML = '<span class="spinner"></span> Validating...';
         try {
             const fd = new FormData();
             const toolName = document.getElementById('tool_name').value.trim();
@@ -447,16 +698,38 @@
             else throw new Error('Provide a video URL or upload a video file.');
             const schedVal = document.getElementById('scheduled_at').value;
             if (schedVal) fd.append('scheduled_at', schedVal + ':00Z');
+
             const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd, headers: authHeaders() });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Submission failed');
+
+            if (data.needs_confirmation) {
+                // Build fresh FormData for re-submit
+                const fd2 = new FormData();
+                fd2.append('tool_name', toolName);
+                if (handle) fd2.append('handle', handle);
+                if (desc) fd2.append('description', desc);
+                if (website) fd2.append('website', website);
+                if (videoUrl) fd2.append('video_url', videoUrl);
+                else if (videoFile) fd2.append('video_file', videoFile);
+                if (schedVal) fd2.append('scheduled_at', schedVal + ':00Z');
+                _pendingFormData = fd2;
+                showWarningModal(data);
+                btn.innerHTML = 'Awaiting confirmation...';
+                return;
+            }
+
             showToast(`"${data.tool_name}" queued for posting!`);
+            if (data.queue_estimate) setTimeout(() => showToast(data.queue_estimate.message, 'warning'), 500);
             e.target.reset();
             fileNameEl.textContent = '';
+            document.getElementById('clientVideoInfo').style.display = 'none';
             toggleVideo('url');
             loadTools();
         } catch (err) { showToast(err.message, 'error'); }
-        finally { btn.disabled = false; btn.innerHTML = 'Submit &amp; Queue for Posting'; }
+        finally {
+            if (!_pendingFormData) { btn.disabled = false; btn.innerHTML = 'Submit &amp; Queue for Posting'; }
+        }
     });
 
     // ── Load tools ────────────────────────────────────────────
@@ -613,6 +886,24 @@
         } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load analytics.</div>`; }
     }
 
+    // ── CSV Export ─────────────────────────────────────────────
+    async function exportCSV() {
+        try {
+            const res = await fetch(`${API_BASE}/api/analytics/export`, { headers: authHeaders() });
+            if (!res.ok) throw new Error('Export failed');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `execution_posting_export_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('CSV exported successfully!');
+        } catch (err) { showToast(err.message, 'error'); }
+    }
+
     // ── Token Health ──────────────────────────────────────────
     async function loadTokenHealth() {
         const container = document.getElementById('healthContent');
@@ -622,7 +913,6 @@
             const d = await res.json();
             if (!res.ok) throw new Error('Failed to load token health');
             const cards = [];
-            // Meta
             const meta = d.meta || {};
             if (meta.configured) {
                 const color = meta.valid ? (meta.days_left > 14 ? 'var(--green)' : meta.days_left > 3 ? 'var(--amber)' : 'var(--red)') : 'var(--red)';
@@ -635,7 +925,6 @@
                 </div>`);
             } else { cards.push(`<div class="token-card" style="border-left:3px solid var(--text-dim)"><h3>&#x25CB; Meta (IG + FB)</h3><div class="token-status" style="color:var(--text-dim)">Not configured</div></div>`); }
 
-            // Other platforms
             ['linkedin','youtube','x','discord','telegram','gemini'].forEach(name => {
                 const p = d[name] || {};
                 const label = name === 'x' ? 'X (Twitter)' : name === 'gemini' ? 'Gemini AI' : name.charAt(0).toUpperCase()+name.slice(1);
@@ -648,6 +937,69 @@
 
             container.innerHTML = `<div class="token-grid">${cards.join('')}</div>`;
         } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load token health.</div>`; }
+    }
+
+    // ── Platform Limits ───────────────────────────────────────
+    async function loadPlatformLimits() {
+        const container = document.getElementById('limitsContent');
+        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Loading limits...</div>';
+        try {
+            const res = await fetch(`${API_BASE}/api/platform-limits`, { headers: authHeaders() });
+            const d = await res.json();
+            if (!res.ok) throw new Error('Failed');
+            let html = '<div class="limits-grid">';
+            for (const [key, lim] of Object.entries(d)) {
+                const maxDur = lim.max_duration_sec < 60 ? `${lim.max_duration_sec}s` : `${Math.floor(lim.max_duration_sec/60)}m${lim.max_duration_sec%60 ? ` ${lim.max_duration_sec%60}s` : ''}`;
+                const sizeLim = lim.max_size_mb >= 1024 ? `${(lim.max_size_mb/1024).toFixed(0)} GB` : `${lim.max_size_mb} MB`;
+                html += `<div class="limit-card">
+                    <h4>${lim.label}</h4>
+                    <div class="limit-row"><span>Max Duration</span><span class="limit-value">${maxDur}</span></div>
+                    <div class="limit-row"><span>Max Size</span><span class="limit-value">${sizeLim}</span></div>
+                    <div class="limit-row"><span>Min Duration</span><span class="limit-value">${lim.min_duration_sec}s</span></div>
+                    <div class="limit-row"><span>Best Aspect</span><span class="limit-value">${lim.recommended_aspect}</span></div>
+                </div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load limits.</div>`; }
+    }
+
+    // ── Smart Scheduling ──────────────────────────────────────
+    async function loadScheduleSuggestions() {
+        const container = document.getElementById('scheduleContent');
+        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Computing best times...</div>';
+        try {
+            const res = await fetch(`${API_BASE}/api/schedule/suggest`, { headers: authHeaders() });
+            const d = await res.json();
+            if (!res.ok) throw new Error('Failed');
+
+            let html = '';
+            if (d.queue_size > 0) html += `<div class="queue-badge" style="margin-bottom:1rem;">&#x1F4CB; ${d.queue_size} tool(s) in queue</div>`;
+            if (d.last_posted_at) html += `<div style="font-size:.82rem;color:var(--text-dim);margin-bottom:1rem;">Last post: ${new Date(d.last_posted_at).toLocaleString()}</div>`;
+
+            html += '<ul class="suggest-list">';
+            d.suggestions.forEach(s => {
+                const dt = new Date(s.suggested_time);
+                const timeStr = dt.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                html += `<li class="suggest-item ${s.is_prime_time ? 'prime' : ''}" onclick="useSchedule('${s.suggested_time}')">
+                    <span class="suggest-time">${timeStr}</span>
+                    <span class="suggest-platform">${s.platform}</span>
+                    <span class="suggest-reason">${esc(s.reason)}</span>
+                    ${s.is_prime_time ? '<span style="color:var(--green);font-size:.75rem;font-weight:700;">PRIME</span>' : ''}
+                </li>`;
+            });
+            html += '</ul>';
+            html += `<p style="color:var(--text-dim);font-size:.78rem;margin-top:1rem;">Click a suggestion to auto-fill the schedule on the Post tab.</p>`;
+            container.innerHTML = html;
+        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load suggestions.</div>`; }
+    }
+
+    function useSchedule(isoTime) {
+        const dt = new Date(isoTime);
+        const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        document.getElementById('scheduled_at').value = local;
+        switchTab('postTab', document.querySelector('[data-tab="postTab"]'));
+        showToast('Schedule set! Submit your tool to use this time.', 'warning');
     }
 
     // ── Auto-refresh ──────────────────────────────────────────

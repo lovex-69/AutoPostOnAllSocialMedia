@@ -2,19 +2,25 @@
 API routes for the ExecutionPosting frontend.
 
 Endpoints:
-  POST  /api/tools           — create a new AI tool record (JSON or multipart form)
-  POST  /api/tools/bulk      — bulk-create tools from JSON array
-  GET   /api/tools           — list all AI tool records
-  GET   /api/tools/{id}      — fetch a single tool
-  PATCH /api/tools/{id}      — update a tool (e.g. set status to READY)
-  POST  /api/tools/{id}/retry — retry failed platforms for a tool
-  DELETE /api/tools/{id}     — delete a tool
-  POST  /api/webhook/post    — external webhook trigger
-  GET   /api/health/tokens   — token expiry dashboard
-  GET   /api/analytics       — posting analytics
+  POST  /api/tools              — create a new AI tool record (JSON or multipart form)
+  POST  /api/tools/validate     — pre-submit validation (returns warnings + duplicates)
+  POST  /api/tools/bulk         — bulk-create tools from JSON array
+  GET   /api/tools              — list all AI tool records
+  GET   /api/tools/{id}         — fetch a single tool
+  PATCH /api/tools/{id}         — update a tool (e.g. set status to READY)
+  POST  /api/tools/{id}/retry   — retry failed platforms for a tool
+  DELETE /api/tools/{id}        — delete a tool
+  POST  /api/webhook/post       — external webhook trigger
+  GET   /api/health/tokens      — token expiry dashboard
+  GET   /api/analytics          — posting analytics
+  GET   /api/analytics/export   — CSV export of all tools
+  GET   /api/platform-limits    — platform duration/size limits
+  GET   /api/schedule/suggest   — smart scheduling suggestions
 """
 
+import csv
 import hmac
+import io
 import json
 import os
 import shutil
@@ -23,6 +29,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from dateutil import parser as dateutil_parser
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -30,6 +37,12 @@ from sqlalchemy import func
 from app.config import settings
 from app.database import get_db
 from app.models import AITool
+from app.services.video_validator import validate_video, get_platform_limits, compute_video_hash
+from app.services.smart_scheduler import (
+    get_schedule_suggestions,
+    check_content_freshness,
+    get_queue_position,
+)
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -68,6 +81,7 @@ def _tool_to_dict(t: AITool) -> dict:
         "youtube_status": t.youtube_status,
         "x_status": t.x_status,
         "error_log": t.error_log,
+        "video_hash": t.video_hash,
         "scheduled_at": t.scheduled_at.isoformat() if t.scheduled_at else None,
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "posted_at": t.posted_at.isoformat() if t.posted_at else None,
@@ -84,11 +98,17 @@ async def create_tool(
     website: Optional[str] = Form(None),
     video_url: Optional[str] = Form(None),
     scheduled_at: Optional[str] = Form(None),
+    force: Optional[str] = Form(None),
     video_file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     _auth: bool = Depends(verify_auth),
 ):
-    """Create a new AI-tool record."""
+    """Create a new AI-tool record.
+
+    If ``force`` is not set to "true", runs validation first and returns
+    warnings without creating the tool. The frontend should show these
+    warnings and re-submit with ``force=true`` to proceed.
+    """
     if not video_url and not video_file:
         raise HTTPException(
             status_code=400,
@@ -119,12 +139,58 @@ async def create_tool(
                 detail="Invalid scheduled_at format. Use ISO-8601.",
             )
 
+    # ── Run validation (unless force=true) ───────────────────────────────
+    is_force = force and force.strip().lower() == "true"
+
+    # Gather existing tools for duplicate detection
+    existing = db.query(AITool).all()
+    existing_dicts = [
+        {
+            "id": t.id,
+            "tool_name": t.tool_name,
+            "video_url": t.video_url,
+            "video_hash": t.video_hash,
+            "status": t.status,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "posted_at": t.posted_at.isoformat() if t.posted_at else None,
+        }
+        for t in existing
+    ]
+
+    validation = validate_video(
+        file_path=video_url if video_url and os.path.isfile(video_url) else None,
+        video_url=video_url,
+        tool_name=tool_name,
+        existing_tools=existing_dicts,
+    )
+
+    # Content freshness check
+    freshness = check_content_freshness(tool_name, existing_dicts)
+    if freshness:
+        validation["warnings"].append(freshness)
+
+    # If there are warnings and user hasn't forced, return warnings only
+    if validation["warnings"] and not is_force:
+        # Queue position estimate
+        ready_count = db.query(func.count(AITool.id)).filter(AITool.status == "READY").scalar()
+        queue_info = get_queue_position(parsed_schedule, ready_count, settings.SCHEDULER_INTERVAL_MINUTES)
+
+        return {
+            "needs_confirmation": True,
+            "warnings": validation["warnings"],
+            "duplicates": validation["duplicates"],
+            "video_info": validation["info"],
+            "queue_estimate": queue_info,
+            "message": "Review the warnings below and confirm to proceed.",
+        }
+
     tool = AITool(
         tool_name=tool_name,
         handle=handle or None,
         description=description or None,
         website=website or None,
         video_url=video_url,  # type: ignore[arg-type]
+        video_hash=validation.get("video_hash"),
         status="READY",
         scheduled_at=parsed_schedule,
     )
@@ -134,11 +200,16 @@ async def create_tool(
 
     logger.info("Tool created: id=%d name=%s", tool.id, tool.tool_name)
 
+    # Queue position estimate
+    ready_count = db.query(func.count(AITool.id)).filter(AITool.status == "READY").scalar()
+    queue_info = get_queue_position(parsed_schedule, ready_count, settings.SCHEDULER_INTERVAL_MINUTES)
+
     return {
         "id": tool.id,
         "tool_name": tool.tool_name,
         "status": tool.status,
         "scheduled_at": tool.scheduled_at.isoformat() if tool.scheduled_at else None,
+        "queue_estimate": queue_info,
         "message": "Tool created and queued for posting.",
     }
 
@@ -454,4 +525,144 @@ async def get_analytics(db: Session = Depends(get_db), _auth: bool = Depends(ver
         "success_rate": round(posted / max(total, 1) * 100, 1),
         "platforms": platform_stats,
         "recent": [_tool_to_dict(t) for t in recent],
+    }
+
+
+# ── Validate before creating ────────────────────────────────────────────────
+
+@router.post("/tools/validate")
+async def validate_tool(
+    tool_name: str = Form(...),
+    video_url: Optional[str] = Form(None),
+    video_file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_auth),
+):
+    """Pre-validate a tool submission without creating it.
+
+    Returns warnings about video duration, size, format, duplicates, and
+    content freshness. The frontend should display these and let the user
+    decide whether to proceed.
+    """
+    # Handle file upload for validation (save temporarily)
+    temp_path = None
+    if video_file and video_file.filename:
+        temp_path = os.path.join(UPLOAD_DIR, f"_validate_{uuid.uuid4().hex[:8]}_{video_file.filename}")
+        with open(temp_path, "wb") as fh:
+            shutil.copyfileobj(video_file.file, fh)
+
+    try:
+        existing = db.query(AITool).all()
+        existing_dicts = [
+            {
+                "id": t.id,
+                "tool_name": t.tool_name,
+                "video_url": t.video_url,
+                "video_hash": t.video_hash,
+                "status": t.status,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "posted_at": t.posted_at.isoformat() if t.posted_at else None,
+            }
+            for t in existing
+        ]
+
+        file_to_probe = temp_path or (video_url if video_url and os.path.isfile(video_url) else None)
+        url_to_check = video_url if video_url else None
+
+        validation = validate_video(
+            file_path=file_to_probe,
+            video_url=url_to_check,
+            tool_name=tool_name,
+            existing_tools=existing_dicts,
+        )
+
+        freshness = check_content_freshness(tool_name, existing_dicts)
+        if freshness:
+            validation["warnings"].append(freshness)
+
+        return validation
+    finally:
+        # Cleanup temp validation file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
+# ── Analytics CSV export ─────────────────────────────────────────────────────
+
+@router.get("/analytics/export")
+async def export_analytics_csv(
+    db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_auth),
+):
+    """Export all tool records as a downloadable CSV file."""
+    tools = db.query(AITool).order_by(AITool.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "Tool Name", "Handle", "Description", "Website", "Video URL",
+        "Status", "LinkedIn", "Instagram", "Facebook", "YouTube", "X",
+        "Error Log", "Created At", "Posted At", "Scheduled At",
+    ])
+    for t in tools:
+        writer.writerow([
+            t.id, t.tool_name, t.handle or "", t.description or "", t.website or "",
+            t.video_url or "", t.status,
+            t.linkedin_status, t.instagram_status, t.facebook_status,
+            t.youtube_status, t.x_status,
+            t.error_log or "",
+            t.created_at.isoformat() if t.created_at else "",
+            t.posted_at.isoformat() if t.posted_at else "",
+            t.scheduled_at.isoformat() if t.scheduled_at else "",
+        ])
+
+    output.seek(0)
+    filename = f"execution_posting_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# ── Platform limits ──────────────────────────────────────────────────────────
+
+@router.get("/platform-limits")
+async def platform_limits(_auth: bool = Depends(verify_auth)):
+    """Return per-platform video duration and size limits."""
+    return get_platform_limits()
+
+
+# ── Smart scheduling suggestions ─────────────────────────────────────────────
+
+@router.get("/schedule/suggest")
+async def schedule_suggestions(
+    db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_auth),
+):
+    """Suggest optimal posting times per platform.
+
+    Takes into account the most recent post time for cooldown spacing.
+    """
+    last_posted = (
+        db.query(AITool.posted_at)
+        .filter(AITool.posted_at.isnot(None))
+        .order_by(AITool.posted_at.desc())
+        .first()
+    )
+    last_posted_at = last_posted[0] if last_posted else None
+
+    suggestions = get_schedule_suggestions(last_posted_at=last_posted_at)
+
+    # Also return queue info
+    ready_count = db.query(func.count(AITool.id)).filter(AITool.status == "READY").scalar()
+
+    return {
+        "suggestions": suggestions,
+        "queue_size": ready_count,
+        "last_posted_at": last_posted_at.isoformat() if last_posted_at else None,
     }

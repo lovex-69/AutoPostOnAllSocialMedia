@@ -23,6 +23,7 @@ from app.database import SessionLocal
 from app.models import AITool
 from app.services.caption_generator import generate_captions
 from app.services.video_downloader import cleanup_video, download_video
+from app.services.video_validator import compute_video_hash
 from app.services.linkedin_service import post_to_linkedin
 from app.services.instagram_service import post_to_instagram
 from app.services.facebook_service import post_to_facebook
@@ -30,6 +31,7 @@ from app.services.youtube_service import post_to_youtube
 from app.services.x_service import post_to_x
 from app.services.video_transformer import transform_for_youtube, cleanup_transformed
 from app.services.notification_service import notify_success, notify_failure
+from app.services.notification_service import notify_token_expiry, notify_info
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -166,6 +168,14 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
         tool.error_log = "Video download/copy failed — file may be missing or URL unreachable."
         db.commit()
         return
+
+    # 2b. Compute video hash for duplicate detection (if not already set)
+    if not tool.video_hash:
+        vhash = compute_video_hash(video_path)
+        if vhash:
+            tool.video_hash = vhash
+            db.flush()
+            logger.info("Tool %d: computed video hash %s…", tool.id, vhash[:12])
 
     # 3. Post to each platform ─────────────────────────────────────────────
     try:
@@ -372,6 +382,68 @@ def _keep_alive_ping() -> None:
         logger.debug("Keep-alive ping failed: %s", exc)
 
 
+# ── Token expiry alerts ──────────────────────────────────────────────────────
+
+_EXPIRY_WARN_DAYS = 7   # warn when token expires within this many days
+_EXPIRY_SENT: dict = {}  # track last alert per platform to avoid spam
+
+
+def _check_token_expiry() -> None:
+    """Proactively check platform tokens and send alerts if expiring soon."""
+    if not settings.META_ACCESS_TOKEN:
+        return
+
+    try:
+        r = requests.get(
+            "https://graph.facebook.com/v19.0/debug_token",
+            params={
+                "input_token": settings.META_ACCESS_TOKEN,
+                "access_token": settings.META_ACCESS_TOKEN,
+            },
+            timeout=10,
+        )
+        if not r.ok:
+            return
+
+        data = r.json().get("data", {})
+        expires = data.get("expires_at", 0)
+        is_valid = data.get("is_valid", False)
+
+        if not is_valid:
+            _send_expiry_alert("Meta (IG + FB)", -1)
+            return
+
+        if expires:
+            from datetime import datetime, timezone
+            exp_dt = datetime.fromtimestamp(expires, tz=timezone.utc)
+            days_left = (exp_dt - datetime.now(timezone.utc)).days
+            if days_left <= _EXPIRY_WARN_DAYS:
+                _send_expiry_alert("Meta (IG + FB)", days_left)
+            else:
+                logger.debug("Meta token OK — %d days remaining.", days_left)
+    except Exception as exc:
+        logger.warning("Token expiry check failed: %s", exc)
+
+
+def _send_expiry_alert(platform: str, days_left: int) -> None:
+    """Send a token expiry notification, max once per 24 hours per platform."""
+    import time as _time
+    last_sent = _EXPIRY_SENT.get(platform, 0)
+    if _time.time() - last_sent < 86400:  # 24 hours
+        return
+
+    if days_left < 0:
+        notify_info(
+            f"🚨 <b>{platform}</b> token is <b>INVALID</b>! "
+            f"Posting to these platforms will fail until you refresh the token."
+        )
+    else:
+        notify_token_expiry(platform, days_left)
+
+    _EXPIRY_SENT[platform] = _time.time()
+    logger.warning("Token expiry alert sent for %s (%d days left).", platform, days_left)
+
+
 def start_scheduler() -> None:
     """Register the polling job and start the scheduler.
 
@@ -407,6 +479,16 @@ def start_scheduler() -> None:
             replace_existing=True,
         )
         logger.info("Keep-alive ping enabled for %s (every 10 min).", _RENDER_URL)
+
+    # Token expiry check: every 6 hours — alerts if token expires within 7 days
+    scheduler.add_job(
+        _check_token_expiry,
+        "interval",
+        hours=6,
+        id="token_expiry_check",
+        replace_existing=True,
+    )
+    logger.info("Token expiry alert job registered (every 6h, warn at %dd).", _EXPIRY_WARN_DAYS)
 
     scheduler.start()
     logger.info(
