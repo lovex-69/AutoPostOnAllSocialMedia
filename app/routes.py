@@ -446,15 +446,16 @@ async def token_health(_auth: bool = Depends(verify_auth)):
                 data = r.json().get("data", {})
                 expires = data.get("expires_at", 0)
                 is_valid = data.get("is_valid", False)
-                if expires:
+                if expires and expires > 0:
                     exp_dt = datetime.fromtimestamp(expires, tz=timezone.utc)
                     days_left = (exp_dt - datetime.now(timezone.utc)).days
                 else:
-                    days_left = None
+                    # expires_at=0 means the token never expires
+                    days_left = 9999
                 platforms["meta"] = {
                     "configured": True,
                     "valid": is_valid,
-                    "expires_at": datetime.fromtimestamp(expires, tz=timezone.utc).isoformat() if expires else None,
+                    "expires_at": datetime.fromtimestamp(expires, tz=timezone.utc).isoformat() if expires and expires > 0 else None,
                     "days_left": days_left,
                     "scopes": data.get("scopes", []),
                 }

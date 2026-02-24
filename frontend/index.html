@@ -915,11 +915,12 @@
             const cards = [];
             const meta = d.meta || {};
             if (meta.configured) {
-                const color = meta.valid ? (meta.days_left > 14 ? 'var(--green)' : meta.days_left > 3 ? 'var(--amber)' : 'var(--red)') : 'var(--red)';
+                const daysLeft = meta.days_left != null ? meta.days_left : (meta.valid ? 9999 : -1);
+                const color = meta.valid ? (daysLeft > 14 ? 'var(--green)' : daysLeft > 3 ? 'var(--amber)' : 'var(--red)') : 'var(--red)';
                 cards.push(`<div class="token-card" style="border-left:3px solid ${color}">
                     <h3><span style="color:${color};">&#x25CF;</span> Meta (IG + FB)</h3>
                     <div class="token-status" style="color:${color}">${meta.valid ? '&#x2714; Valid' : '&#x2718; Invalid'}</div>
-                    ${meta.days_left != null ? `<div class="token-detail">Expires in <strong style="color:${color};">${meta.days_left} days</strong> (${new Date(meta.expires_at).toLocaleDateString()})</div>` : ''}
+                    ${meta.expires_at ? `<div class="token-detail">Expires in <strong style="color:${color};">${meta.days_left} days</strong> (${new Date(meta.expires_at).toLocaleDateString()})</div>` : meta.valid ? '<div class="token-detail" style="color:var(--green);">No expiry — long-lived token</div>' : ''}
                     ${meta.scopes ? `<div class="token-detail" style="margin-top:.3rem;">Scopes: ${meta.scopes.join(', ')}</div>` : ''}
                     ${meta.error ? `<div class="token-detail" style="color:var(--red);">${meta.error}</div>` : ''}
                 </div>`);
