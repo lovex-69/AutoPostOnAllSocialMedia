@@ -17,6 +17,7 @@ Ref: https://developers.facebook.com/docs/video-api/guides/reels-publishing
 
 import os
 import time
+from datetime import datetime, timezone
 
 import requests
 
@@ -27,19 +28,33 @@ logger = get_logger(__name__)
 
 GRAPH_URL = "https://graph.facebook.com/v19.0"
 
-# Cache the page token so we don't fetch it on every post
+# Cache the page token with a TTL so it auto-refreshes if the user token changes
 _page_token_cache: str | None = None
+_page_token_cached_at: datetime | None = None
+_PAGE_TOKEN_TTL_SECONDS = 3600  # Re-fetch every hour
+
+
+def clear_page_token_cache() -> None:
+    """Invalidate the cached page token (call when user token is refreshed)."""
+    global _page_token_cache, _page_token_cached_at
+    _page_token_cache = None
+    _page_token_cached_at = None
+    logger.info("Facebook: page token cache cleared.")
 
 
 def _get_page_access_token() -> str:
     """Exchange the user access token for a Page Access Token.
 
     The Graph API requires a Page token (not a user token) to publish
-    content on behalf of a Page.
+    content on behalf of a Page. Caches with TTL to avoid excessive API calls.
     """
-    global _page_token_cache
-    if _page_token_cache:
-        return _page_token_cache
+    global _page_token_cache, _page_token_cached_at
+
+    # Return cached token if still fresh
+    if _page_token_cache and _page_token_cached_at:
+        elapsed = (datetime.now(timezone.utc) - _page_token_cached_at).total_seconds()
+        if elapsed < _PAGE_TOKEN_TTL_SECONDS:
+            return _page_token_cache
 
     page_id = settings.FACEBOOK_PAGE_ID
     resp = requests.get(
@@ -55,6 +70,7 @@ def _get_page_access_token() -> str:
     for page in resp.json().get("data", []):
         if page["id"] == page_id:
             _page_token_cache = page["access_token"]
+            _page_token_cached_at = datetime.now(timezone.utc)
             logger.info("Facebook: obtained Page Access Token for page %s", page_id)
             return _page_token_cache
 

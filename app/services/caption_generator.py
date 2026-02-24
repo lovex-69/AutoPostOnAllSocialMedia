@@ -167,7 +167,7 @@ def _fallback_captions(
     headline = f"{tool_name}{credit}"
 
     # X / Twitter — punchy hook + CTA
-    x_lines = [f"Stop satisfying. This AI tool is insane 🤯"]
+    x_lines = [f"Stop scrolling. This AI tool is insane 🤯"]
     x_lines.append(f"\n{headline} — {desc}")
     if site:
         x_lines.append(f"\n🔗 {site}")

@@ -91,6 +91,15 @@ def post_to_instagram(caption: str, video_url: str) -> bool:
     Returns:
         ``True`` on success, ``False`` on failure.
     """
+    # Guard: Instagram requires a public URL, not a local file path
+    if not video_url or not video_url.startswith(("http://", "https://")):
+        logger.error(
+            "Instagram: video_url must be a public HTTP(S) URL, got: %s. "
+            "Local file uploads cannot be used with Instagram — provide a direct video URL instead.",
+            video_url,
+        )
+        return False
+
     try:
         container_id = _create_container(video_url, caption)
 

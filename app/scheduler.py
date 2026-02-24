@@ -11,7 +11,8 @@ Key features:
 import os
 import time
 import functools
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Callable
 
 import requests
@@ -39,20 +40,30 @@ _UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 # ── Retry decorator ──────────────────────────────────────────────────────────
 
 def retry(max_attempts: int = 3, backoff: int = 2) -> Callable:
-    """Decorator that retries a function on exception with exponential backoff.
+    """Decorator that retries a function on exception OR False return with
+    exponential backoff.
 
     Args:
         max_attempts: Total number of attempts before giving up.
         backoff: Base delay in seconds (doubles after each failure).
+
+    The last error message is stored on the wrapper as ``.last_error`` after
+    each call so callers can inspect it for logging.
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             delay = backoff
+            wrapper.last_error = None
             for attempt in range(1, max_attempts + 1):
                 try:
-                    return func(*args, **kwargs)
+                    result = func(*args, **kwargs)
+                    if result is False:
+                        raise RuntimeError(f"{func.__name__} returned False")
+                    wrapper.last_error = None
+                    return result
                 except Exception as exc:
+                    wrapper.last_error = str(exc)
                     if attempt == max_attempts:
                         logger.error(
                             "%s failed after %d attempts: %s",
@@ -66,6 +77,7 @@ def retry(max_attempts: int = 3, backoff: int = 2) -> Callable:
                     time.sleep(delay)
                     delay *= 2
             return False
+        wrapper.last_error = None
         return wrapper
     return decorator
 
@@ -80,8 +92,44 @@ _post_x = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_x)
 
 # ── Cleanup helpers ───────────────────────────────────────────────────────────
 
-def _cleanup_original_upload(video_url: str) -> None:
-    """Delete the original uploaded file if it lives in the uploads/ directory."""
+# How long to keep uploaded videos (allows retries before cleanup)
+_UPLOAD_RETENTION_DAYS = 2
+
+
+def _cleanup_old_uploads() -> None:
+    """Delete uploaded video files older than _UPLOAD_RETENTION_DAYS.
+
+    Runs on a schedule so that videos remain available for retries but
+    don't accumulate indefinitely on disk.
+    """
+    uploads_dir = Path(_UPLOAD_DIR)
+    if not uploads_dir.exists():
+        return
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=_UPLOAD_RETENTION_DAYS)
+    cleaned = 0
+
+    for f in uploads_dir.iterdir():
+        if not f.is_file():
+            continue
+        try:
+            mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
+            if mtime < cutoff:
+                f.unlink()
+                cleaned += 1
+                logger.info("Cleanup: deleted old upload %s (modified %s)", f.name, mtime.date())
+        except OSError as exc:
+            logger.warning("Cleanup: could not delete %s: %s", f.name, exc)
+
+    if cleaned:
+        logger.info("Cleanup: removed %d file(s) older than %d days.", cleaned, _UPLOAD_RETENTION_DAYS)
+
+
+def cleanup_uploaded_file(video_url: str) -> None:
+    """Delete a specific uploaded file (used when a tool record is deleted).
+
+    Only removes files inside the uploads/ directory.
+    """
     try:
         if not video_url:
             return
@@ -89,9 +137,9 @@ def _cleanup_original_upload(video_url: str) -> None:
         uploads_dir = os.path.normpath(_UPLOAD_DIR)
         if normalised.startswith(uploads_dir) and os.path.exists(normalised):
             os.remove(normalised)
-            logger.info("Deleted original upload: %s", normalised)
+            logger.info("Deleted uploaded file: %s", normalised)
     except OSError as exc:
-        logger.warning("Failed to delete original upload %s: %s", video_url, exc)
+        logger.warning("Failed to delete uploaded file %s: %s", video_url, exc)
 
 
 # ── Core job ──────────────────────────────────────────────────────────────────
@@ -114,8 +162,8 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
     except RuntimeError:
         logger.error("Skipping tool %d — video download failed.", tool.id)
         tool.status = "FAILED"
+        tool.error_log = "Video download/copy failed — file may be missing or URL unreachable."
         db.commit()
-        _cleanup_original_upload(tool.video_url)
         return
 
     # 3. Post to each platform ─────────────────────────────────────────────
@@ -125,60 +173,75 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
 
         # LinkedIn
         if settings.LINKEDIN_ACCESS_TOKEN and (settings.LINKEDIN_ORG_ID or settings.LINKEDIN_PERSON_URN):
-            linkedin_ok = _post_linkedin(captions["linkedin"], video_path)
-            tool.linkedin_status = "SUCCESS" if linkedin_ok else "FAILED"
-            if linkedin_ok:
-                success_count += 1
+            if tool.linkedin_status == "SUCCESS":
+                logger.info("LinkedIn: already SUCCESS — skipping to avoid duplicate.")
             else:
-                error_parts.append("LinkedIn: posting failed")
+                linkedin_ok = _post_linkedin(captions["linkedin"], video_path)
+                tool.linkedin_status = "SUCCESS" if linkedin_ok else "FAILED"
+                if linkedin_ok:
+                    success_count += 1
+                else:
+                    error_parts.append(f"LinkedIn: {_post_linkedin.last_error or 'posting failed'}")
         else:
             tool.linkedin_status = "SKIPPED"
             logger.info("LinkedIn: skipped (credentials not configured).")
 
         # Instagram  (uses the *public* video URL, not local path)
         if settings.META_ACCESS_TOKEN and settings.INSTAGRAM_BUSINESS_ID:
-            instagram_ok = _post_instagram(captions["instagram"], tool.video_url)
-            tool.instagram_status = "SUCCESS" if instagram_ok else "FAILED"
-            if instagram_ok:
-                success_count += 1
+            if tool.instagram_status == "SUCCESS":
+                logger.info("Instagram: already SUCCESS — skipping to avoid duplicate.")
             else:
-                error_parts.append("Instagram: posting failed")
+                instagram_ok = _post_instagram(captions["instagram"], tool.video_url)
+                tool.instagram_status = "SUCCESS" if instagram_ok else "FAILED"
+                if instagram_ok:
+                    success_count += 1
+                else:
+                    error_parts.append(f"Instagram: {_post_instagram.last_error or 'posting failed'}")
         else:
             tool.instagram_status = "SKIPPED"
             logger.info("Instagram: skipped (credentials not configured).")
 
         # Facebook Reels  (uses local video path)
         if settings.META_ACCESS_TOKEN and settings.FACEBOOK_PAGE_ID:
-            facebook_ok = _post_facebook(captions["facebook"], video_path)
-            tool.facebook_status = "SUCCESS" if facebook_ok else "FAILED"
-            if facebook_ok:
-                success_count += 1
+            if tool.facebook_status == "SUCCESS":
+                logger.info("Facebook: already SUCCESS — skipping to avoid duplicate.")
             else:
-                error_parts.append("Facebook: posting failed")
+                facebook_ok = _post_facebook(captions["facebook"], video_path)
+                tool.facebook_status = "SUCCESS" if facebook_ok else "FAILED"
+                if facebook_ok:
+                    success_count += 1
+                else:
+                    error_parts.append(f"Facebook: {_post_facebook.last_error or 'posting failed'}")
         else:
             tool.facebook_status = "SKIPPED"
             logger.info("Facebook: skipped (credentials not configured).")
 
         # YouTube Shorts
         if settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_CLIENT_SECRET and settings.YOUTUBE_REFRESH_TOKEN:
-            youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], video_path)
-            tool.youtube_status = "SUCCESS" if youtube_ok else "FAILED"
-            if youtube_ok:
-                success_count += 1
+            if tool.youtube_status == "SUCCESS":
+                logger.info("YouTube: already SUCCESS — skipping to avoid duplicate.")
             else:
-                error_parts.append("YouTube: posting failed")
+                youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], video_path)
+                tool.youtube_status = "SUCCESS" if youtube_ok else "FAILED"
+                if youtube_ok:
+                    success_count += 1
+                else:
+                    error_parts.append(f"YouTube: {_post_youtube.last_error or 'posting failed'}")
         else:
             tool.youtube_status = "SKIPPED"
             logger.info("YouTube: skipped (credentials not configured).")
 
         # X (Twitter)
         if settings.X_API_KEY and settings.X_API_SECRET and settings.X_ACCESS_TOKEN and settings.X_ACCESS_SECRET:
-            x_ok = _post_x(captions["x"], video_path)
-            tool.x_status = "SUCCESS" if x_ok else "FAILED"
-            if x_ok:
-                success_count += 1
+            if tool.x_status == "SUCCESS":
+                logger.info("X: already SUCCESS — skipping to avoid duplicate.")
             else:
-                error_parts.append("X: posting failed")
+                x_ok = _post_x(captions["x"], video_path)
+                tool.x_status = "SUCCESS" if x_ok else "FAILED"
+                if x_ok:
+                    success_count += 1
+                else:
+                    error_parts.append(f"X: {_post_x.last_error or 'posting failed'}")
         else:
             tool.x_status = "SKIPPED"
             logger.info("X/Twitter: skipped (credentials not configured).")
@@ -187,18 +250,24 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
         tool.error_log = " | ".join(error_parts) if error_parts else None
 
         # 4. Update overall status ─────────────────────────────────────────
+        # Count all SUCCESS platforms (including ones that were already done)
+        total_success = sum(
+            1 for s in (tool.linkedin_status, tool.instagram_status,
+                        tool.facebook_status, tool.youtube_status, tool.x_status)
+            if s == "SUCCESS"
+        )
         attempted = sum(
             1 for s in (tool.linkedin_status, tool.instagram_status,
                          tool.facebook_status, tool.youtube_status, tool.x_status)
             if s != "SKIPPED"
         )
 
-        if success_count > 0:
+        if total_success > 0:
             tool.status = "POSTED"
             tool.posted_at = datetime.now(timezone.utc)
             logger.info(
                 "Tool %d posted to %d/%d platforms (%d skipped).",
-                tool.id, success_count, attempted, 5 - attempted,
+                tool.id, total_success, attempted, 5 - attempted,
             )
             notify_success(tool.tool_name, tool.id, {
                 "LinkedIn": tool.linkedin_status,
@@ -228,9 +297,8 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
         db.commit()
 
     finally:
-        # 5. ALWAYS cleanup temp video + original upload ───────────────────
+        # 5. ALWAYS cleanup temp video (keep original upload for retries)
         cleanup_video(video_path)
-        _cleanup_original_upload(tool.video_url)
 
 
 def check_and_post() -> None:
@@ -264,9 +332,8 @@ def check_and_post() -> None:
                     "Unhandled error processing tool %d: %s", tool.id, exc,
                 )
                 tool.status = "FAILED"
+                tool.error_log = f"Unhandled error: {exc}"
                 db.commit()
-                # Best-effort cleanup even on unhandled crash
-                _cleanup_original_upload(tool.video_url)
     finally:
         db.close()
 
@@ -305,6 +372,16 @@ def start_scheduler() -> None:
         id="social_media_poster",
         replace_existing=True,
     )
+
+    # Cleanup old uploads every 6 hours (keeps files for 2 days for retries)
+    scheduler.add_job(
+        _cleanup_old_uploads,
+        "interval",
+        hours=6,
+        id="cleanup_old_uploads",
+        replace_existing=True,
+    )
+    logger.info("Upload cleanup job registered (every 6h, retention=%dd).", _UPLOAD_RETENTION_DAYS)
 
     # Keep-alive: ping /health every 10 minutes to prevent Render sleep
     if _RENDER_URL:

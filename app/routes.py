@@ -18,6 +18,7 @@ import hmac
 import json
 import os
 import shutil
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -98,7 +99,9 @@ async def create_tool(
         safe_name = "".join(
             c if c.isalnum() or c in "-_." else "_" for c in video_file.filename
         )
-        dest_path = os.path.join(UPLOAD_DIR, safe_name)
+        # Prefix with UUID to prevent filename collisions across uploads
+        unique_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
+        dest_path = os.path.join(UPLOAD_DIR, unique_name)
         with open(dest_path, "wb") as fh:
             shutil.copyfileobj(video_file.file, fh)
         video_url = dest_path
@@ -280,10 +283,21 @@ async def delete_tool(
     db: Session = Depends(get_db),
     _auth: bool = Depends(verify_auth),
 ):
-    """Delete a tool record permanently."""
+    """Delete a tool record permanently and clean up its uploaded video."""
     tool = db.query(AITool).filter(AITool.id == tool_id).first()
     if not tool:
         raise HTTPException(status_code=404, detail="Tool not found.")
+
+    # Clean up uploaded video file if it exists in uploads/
+    if tool.video_url:
+        normalised = os.path.normpath(tool.video_url)
+        uploads_dir = os.path.normpath(UPLOAD_DIR)
+        if normalised.startswith(uploads_dir) and os.path.exists(normalised):
+            try:
+                os.remove(normalised)
+                logger.info("Deleted uploaded video: %s", normalised)
+            except OSError as exc:
+                logger.warning("Could not delete video %s: %s", normalised, exc)
 
     db.delete(tool)
     db.commit()
