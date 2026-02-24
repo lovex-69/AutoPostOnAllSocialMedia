@@ -57,6 +57,20 @@ PLATFORM_LIMITS = {
         "recommended_aspect": "any",
         "min_duration_sec": 0.5,
     },
+    "telegram_channel": {
+        "label": "Telegram Channel",
+        "max_duration_sec": 3600,  # effectively unlimited
+        "max_size_mb": 50,         # bot upload limit
+        "recommended_aspect": "any",
+        "min_duration_sec": 1,
+    },
+    "reddit": {
+        "label": "Reddit Video",
+        "max_duration_sec": 900,   # 15 minutes
+        "max_size_mb": 1024,       # 1 GB
+        "recommended_aspect": "any",
+        "min_duration_sec": 1,
+    },
 }
 
 

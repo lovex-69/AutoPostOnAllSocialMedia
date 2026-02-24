@@ -80,6 +80,8 @@ def _tool_to_dict(t: AITool) -> dict:
         "facebook_status": t.facebook_status,
         "youtube_status": t.youtube_status,
         "x_status": t.x_status,
+        "telegram_channel_status": t.telegram_channel_status,
+        "reddit_status": t.reddit_status,
         "error_log": t.error_log,
         "video_hash": t.video_hash,
         "scheduled_at": t.scheduled_at.isoformat() if t.scheduled_at else None,
@@ -330,7 +332,7 @@ async def retry_tool(
 
     reset_count = 0
     for attr in ("linkedin_status", "instagram_status", "facebook_status",
-                 "youtube_status", "x_status"):
+                 "youtube_status", "x_status", "telegram_channel_status", "reddit_status"):
         if getattr(tool, attr) == "FAILED":
             setattr(tool, attr, "PENDING")
             reset_count += 1
@@ -479,6 +481,19 @@ async def token_health(_auth: bool = Depends(verify_auth)):
         "configured": bool(settings.X_API_KEY and settings.X_API_SECRET and settings.X_ACCESS_TOKEN and settings.X_ACCESS_SECRET)
     }
 
+    # Telegram Channel
+    platforms["telegram_channel"] = {
+        "configured": bool(settings.TELEGRAM_BOT_TOKEN and getattr(settings, 'TELEGRAM_CHANNEL_ID', None))
+    }
+
+    # Reddit
+    platforms["reddit"] = {
+        "configured": bool(
+            getattr(settings, 'REDDIT_CLIENT_ID', None)
+            and getattr(settings, 'REDDIT_SUBREDDIT', None)
+        )
+    }
+
     # Notifications
     platforms["discord"] = {"configured": bool(settings.DISCORD_WEBHOOK_URL)}
     platforms["telegram"] = {"configured": bool(settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID)}
@@ -502,7 +517,7 @@ async def get_analytics(db: Session = Depends(get_db), _auth: bool = Depends(ver
 
     # Per-platform success rates
     platform_stats = {}
-    for platform in ("linkedin", "instagram", "facebook", "youtube", "x"):
+    for platform in ("linkedin", "instagram", "facebook", "youtube", "x", "telegram_channel", "reddit"):
         col = getattr(AITool, f"{platform}_status")
         success = db.query(func.count(AITool.id)).filter(col == "SUCCESS").scalar()
         fail = db.query(func.count(AITool.id)).filter(col == "FAILED").scalar()
@@ -670,6 +685,7 @@ async def export_analytics_csv(
     writer.writerow([
         "ID", "Tool Name", "Handle", "Description", "Website", "Video URL",
         "Status", "LinkedIn", "Instagram", "Facebook", "YouTube", "X",
+        "Telegram Channel", "Reddit",
         "Error Log", "Created At", "Posted At", "Scheduled At",
     ])
     for t in tools:
@@ -678,6 +694,7 @@ async def export_analytics_csv(
             t.video_url or "", t.status,
             t.linkedin_status, t.instagram_status, t.facebook_status,
             t.youtube_status, t.x_status,
+            t.telegram_channel_status, t.reddit_status,
             t.error_log or "",
             t.created_at.isoformat() if t.created_at else "",
             t.posted_at.isoformat() if t.posted_at else "",

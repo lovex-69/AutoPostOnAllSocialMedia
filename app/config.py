@@ -58,6 +58,16 @@ class Settings(BaseSettings):
     MAX_RETRIES: int = 3
     RETRY_BACKOFF_SECONDS: int = 2
 
+    # ── Telegram Channel posting ────────────────────────────────────────────
+    TELEGRAM_CHANNEL_ID: Optional[str] = None  # @channel or numeric chat ID
+
+    # ── Reddit ────────────────────────────────────────────────────────────────
+    REDDIT_CLIENT_ID: Optional[str] = None
+    REDDIT_CLIENT_SECRET: Optional[str] = None
+    REDDIT_USERNAME: Optional[str] = None
+    REDDIT_PASSWORD: Optional[str] = None
+    REDDIT_SUBREDDIT: Optional[str] = None   # e.g. "AItools" (no r/ prefix)
+
     # ── Notifications (optional) ──────────────────────────────────────────
     DISCORD_WEBHOOK_URL: Optional[str] = None
     TELEGRAM_BOT_TOKEN: Optional[str] = None

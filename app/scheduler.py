@@ -29,6 +29,8 @@ from app.services.instagram_service import post_to_instagram
 from app.services.facebook_service import post_to_facebook
 from app.services.youtube_service import post_to_youtube
 from app.services.x_service import post_to_x
+from app.services.telegram_channel_service import post_to_telegram_channel
+from app.services.reddit_service import post_to_reddit
 from app.services.video_transformer import transform_for_youtube, cleanup_transformed
 from app.services.notification_service import notify_success, notify_failure
 from app.services.notification_service import notify_token_expiry, notify_info
@@ -91,6 +93,8 @@ _post_instagram = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(po
 _post_facebook = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_facebook)
 _post_youtube = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_youtube)
 _post_x = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_x)
+_post_telegram_channel = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_telegram_channel)
+_post_reddit = retry(settings.MAX_RETRIES, settings.RETRY_BACKOFF_SECONDS)(post_to_reddit)
 
 
 # ── Cleanup helpers ───────────────────────────────────────────────────────────
@@ -270,28 +274,56 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.x_status = "SKIPPED"
             logger.info("X/Twitter: skipped (credentials not configured).")
 
+        # Telegram Channel
+        if settings.TELEGRAM_BOT_TOKEN and getattr(settings, 'TELEGRAM_CHANNEL_ID', None):
+            if tool.telegram_channel_status == "SUCCESS":
+                logger.info("Telegram Channel: already SUCCESS — skipping.")
+            else:
+                tg_ok = _post_telegram_channel(captions["telegram_channel"], video_path)
+                tool.telegram_channel_status = "SUCCESS" if tg_ok else "FAILED"
+                if tg_ok:
+                    success_count += 1
+                else:
+                    error_parts.append(f"Telegram: {_post_telegram_channel.last_error or 'posting failed'}")
+        else:
+            tool.telegram_channel_status = "SKIPPED"
+            logger.info("Telegram Channel: skipped (not configured).")
+
+        # Reddit
+        if getattr(settings, 'REDDIT_CLIENT_ID', None) and getattr(settings, 'REDDIT_SUBREDDIT', None):
+            if tool.reddit_status == "SUCCESS":
+                logger.info("Reddit: already SUCCESS — skipping.")
+            else:
+                reddit_ok = _post_reddit(captions["reddit"], video_path, tool.tool_name)
+                tool.reddit_status = "SUCCESS" if reddit_ok else "FAILED"
+                if reddit_ok:
+                    success_count += 1
+                else:
+                    error_parts.append(f"Reddit: {_post_reddit.last_error or 'posting failed'}")
+        else:
+            tool.reddit_status = "SKIPPED"
+            logger.info("Reddit: skipped (not configured).")
+
         # Save error log if any failures
         tool.error_log = " | ".join(error_parts) if error_parts else None
 
         # 4. Update overall status ─────────────────────────────────────────
         # Count all SUCCESS platforms (including ones that were already done)
-        total_success = sum(
-            1 for s in (tool.linkedin_status, tool.instagram_status,
-                        tool.facebook_status, tool.youtube_status, tool.x_status)
-            if s == "SUCCESS"
+        _all_statuses = (
+            tool.linkedin_status, tool.instagram_status,
+            tool.facebook_status, tool.youtube_status, tool.x_status,
+            tool.telegram_channel_status, tool.reddit_status,
         )
-        attempted = sum(
-            1 for s in (tool.linkedin_status, tool.instagram_status,
-                         tool.facebook_status, tool.youtube_status, tool.x_status)
-            if s != "SKIPPED"
-        )
+        total_success = sum(1 for s in _all_statuses if s == "SUCCESS")
+        attempted = sum(1 for s in _all_statuses if s != "SKIPPED")
 
         if total_success > 0:
             tool.status = "POSTED"
             tool.posted_at = datetime.now(timezone.utc)
+            _PLATFORM_COUNT = 7
             logger.info(
                 "Tool %d posted to %d/%d platforms (%d skipped).",
-                tool.id, total_success, attempted, 5 - attempted,
+                tool.id, total_success, attempted, _PLATFORM_COUNT - attempted,
             )
             notify_success(tool.tool_name, tool.id, {
                 "LinkedIn": tool.linkedin_status,
@@ -299,6 +331,8 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
                 "Facebook": tool.facebook_status,
                 "YouTube": tool.youtube_status,
                 "X": tool.x_status,
+                "Telegram": tool.telegram_channel_status,
+                "Reddit": tool.reddit_status,
             })
         elif attempted == 0:
             tool.status = "FAILED"
@@ -316,6 +350,8 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
                 "Facebook": tool.facebook_status,
                 "YouTube": tool.youtube_status,
                 "X": tool.x_status,
+                "Telegram": tool.telegram_channel_status,
+                "Reddit": tool.reddit_status,
             })
 
         db.commit()

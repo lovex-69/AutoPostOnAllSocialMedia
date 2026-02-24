@@ -99,10 +99,10 @@ def _handle_recent(db):
     lines = ["📋 <b>Recent Posts</b>\n"]
     for t in tools:
         platforms = []
-        for p in ("linkedin", "instagram", "facebook", "youtube", "x"):
+        for p, lbl in (("linkedin","LI"),("instagram","IG"),("facebook","FB"),("youtube","YT"),("x","X"),("telegram_channel","TG"),("reddit","RD")):
             st = getattr(t, f"{p}_status")
             icon = "✅" if st == "SUCCESS" else ("❌" if st == "FAILED" else "⏭")
-            platforms.append(f"{icon}{p[:2].upper()}")
+            platforms.append(f"{icon}{lbl}")
         posted_str = t.posted_at.strftime("%b %d, %H:%M") if t.posted_at else "—"
         lines.append(f"• <b>{t.tool_name}</b> — {posted_str}\n  {' '.join(platforms)}")
 
@@ -172,6 +172,8 @@ def _handle_health():
         "LinkedIn": bool(settings.LINKEDIN_ACCESS_TOKEN),
         "YouTube": bool(settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_REFRESH_TOKEN),
         "X/Twitter": bool(settings.X_API_KEY and settings.X_ACCESS_TOKEN),
+        "TG Channel": bool(settings.TELEGRAM_BOT_TOKEN and getattr(settings, 'TELEGRAM_CHANNEL_ID', None)),
+        "Reddit": bool(getattr(settings, 'REDDIT_CLIENT_ID', None) and getattr(settings, 'REDDIT_SUBREDDIT', None)),
         "Discord": bool(settings.DISCORD_WEBHOOK_URL),
         "Gemini AI": bool(settings.GEMINI_API_KEY),
     }

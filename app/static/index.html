@@ -564,7 +564,7 @@ async function loadTools(){
     const r=await fetch(`${A}/api/tools`,{headers:hdr()});const tools=await r.json();const box=document.getElementById('toolBox');
     if(!tools.length){box.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text-dim)">No tools yet</div>';return;}
     box.innerHTML='<div class="tool-list">'+tools.map(t=>{
-      const ps=['youtube','x','linkedin','instagram','facebook'];
+      const ps=['youtube','x','linkedin','instagram','facebook','telegram_channel','reddit'];
       const done=ps.filter(p=>t[p+'_status']==='SUCCESS').length;
       const failed=ps.some(p=>t[p+'_status']==='FAILED');
       return `<div class="tool-card">
@@ -572,7 +572,7 @@ async function loadTools(){
         <div class="tool-body">
           <div class="tool-name">${esc(t.tool_name)}</div>
           <div class="tool-meta"><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span> <span>${t.posted_at?new Date(t.posted_at).toLocaleDateString():new Date(t.created_at).toLocaleDateString()}</span></div>
-          <div class="tool-platforms">${ps.map(p=>{const s=t[p+'_status'];return `<span class="plat ${s==='SUCCESS'?'plat-ok':s==='FAILED'?'plat-fail':s==='SKIPPED'?'plat-skip':'plat-wait'}">${p.slice(0,2)}</span>`;}).join('')}</div>
+          <div class="tool-platforms">${ps.map(p=>{const s=t[p+'_status'];const lbl=p==='telegram_channel'?'tg':p.slice(0,2);return `<span class="plat ${s==='SUCCESS'?'plat-ok':s==='FAILED'?'plat-fail':s==='SKIPPED'?'plat-skip':'plat-wait'}">${lbl}</span>`;}).join('')}</div>
           ${t.scheduled_at&&t.status==='READY'?`<div class="tool-sched">⏰ ${new Date(t.scheduled_at).toLocaleString()}</div>`:''}
           ${t.error_log?`<div class="tool-error">⚠ ${esc(t.error_log)}</div>`:''}
         </div>
@@ -633,9 +633,9 @@ async function loadRecent(){
     const r=await fetch(`${A}/api/analytics`,{headers:hdr()});const d=await r.json();
     if(!d.recent||!d.recent.length){box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)">No posts yet</div>';return;}
     box.innerHTML='<div class="tool-list">'+d.recent.map(t=>{
-      const ps=['youtube','x','linkedin','instagram','facebook'];
+      const ps=['youtube','x','linkedin','instagram','facebook','telegram_channel','reddit'];
       const done=ps.filter(p=>t[p+'_status']==='SUCCESS').length;
-      return `<div class="tool-card"><div style="min-width:32px;text-align:center;font-size:.85rem;font-weight:700;color:var(--green)">${done}/5</div><div class="tool-body"><div class="tool-name">${esc(t.tool_name)}</div><div class="tool-meta"><span>${t.posted_at?new Date(t.posted_at).toLocaleDateString():'-'}</span></div><div class="tool-platforms">${ps.map(p=>{const s=t[p+'_status'];return `<span class="plat ${s==='SUCCESS'?'plat-ok':s==='FAILED'?'plat-fail':s==='SKIPPED'?'plat-skip':'plat-wait'}">${p.slice(0,2)}</span>`;}).join('')}</div></div></div>`;
+      return `<div class="tool-card"><div style="min-width:32px;text-align:center;font-size:.85rem;font-weight:700;color:var(--green)">${done}/7</div><div class="tool-body"><div class="tool-name">${esc(t.tool_name)}</div><div class="tool-meta"><span>${t.posted_at?new Date(t.posted_at).toLocaleDateString():'-'}</span></div><div class="tool-platforms">${ps.map(p=>{const s=t[p+'_status'];const lbl=p==='telegram_channel'?'tg':p.slice(0,2);return `<span class="plat ${s==='SUCCESS'?'plat-ok':s==='FAILED'?'plat-fail':s==='SKIPPED'?'plat-skip':'plat-wait'}">${lbl}</span>`;}).join('')}</div></div></div>`;
     }).join('')+'</div>';
   }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center">Failed</div>';}
 }
@@ -650,7 +650,8 @@ async function loadAnalytics(){
     h+='<div style="font-size:.88rem;font-weight:700;margin-bottom:.8rem">Platform Performance</div>';
     Object.entries(d.platforms).forEach(([n,s])=>{
       const c=s.success_rate>70?'var(--green)':s.success_rate>30?'var(--amber)':'var(--red)';
-      h+=`<div class="platform-row"><span class="name">${n[0].toUpperCase()+n.slice(1)}</span><div class="track"><div class="track-fill" style="width:${s.success_rate}%"></div></div><span class="rate" style="color:${c}">${s.success_rate}%</span><span style="font-size:.7rem;color:var(--text-dim);min-width:60px;text-align:right">${s.success}✓ ${s.failed}✗</span></div>`;
+      const label=n==='telegram_channel'?'Telegram':n==='x'?'X':n[0].toUpperCase()+n.slice(1);
+      h+=`<div class="platform-row"><span class="name">${label}</span><div class="track"><div class="track-fill" style="width:${s.success_rate}%"></div></div><span class="rate" style="color:${c}">${s.success_rate}%</span><span style="font-size:.7rem;color:var(--text-dim);min-width:60px;text-align:right">${s.success}✓ ${s.failed}✗</span></div>`;
     });
     box.innerHTML=h;
   }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center">Failed</div>';}
@@ -676,8 +677,8 @@ async function loadHealth(){
       cards.push(`<div class="health-card ${cls}"><h4>Meta (IG + FB)</h4><div class="detail">${det}</div></div>`);
     }else cards.push(`<div class="health-card"><h4>Meta (IG + FB)</h4><div class="detail">Not configured</div></div>`);
 
-    ['linkedin','youtube','x','discord','telegram','gemini'].forEach(n=>{
-      const p=d[n]||{};const label=n==='x'?'X (Twitter)':n==='gemini'?'Gemini AI':n[0].toUpperCase()+n.slice(1);
+    ['linkedin','youtube','x','telegram_channel','reddit','discord','telegram','gemini'].forEach(n=>{
+      const p=d[n]||{};const label=n==='x'?'X (Twitter)':n==='gemini'?'Gemini AI':n==='telegram_channel'?'Telegram Channel':n==='telegram'?'Telegram Bot':n==='reddit'?'Reddit':n[0].toUpperCase()+n.slice(1);
       cards.push(`<div class="health-card ${p.configured?'ok':''}"><h4>${label}</h4><div class="detail">${p.configured?'✓ Configured':'Not configured'}</div></div>`);
     });
     box.innerHTML=`<div class="health-grid">${cards.join('')}</div>`;

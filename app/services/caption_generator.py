@@ -5,7 +5,7 @@ Uses Google Gemini to generate engaging, platform-optimized captions with
 relevant hashtags and emojis.  Falls back to a simple template builder if
 Gemini is unavailable or if the API key is not configured.
 
-Returns a dict with keys: x, linkedin, instagram, facebook, youtube.
+Returns a dict with keys: x, linkedin, instagram, facebook, youtube, telegram_channel, reddit.
 """
 
 from typing import Dict, Optional
@@ -43,7 +43,7 @@ Tool info:
 - Website: {website}
 - Creator/Handle: {handle}
 
-Generate FIVE separate captions, one for each platform. Apply these growth tactics:
+Generate SEVEN separate captions, one for each platform. Apply these growth tactics:
 
 **UNIVERSAL RULES (apply to ALL platforms):**
 - Start with a PATTERN-INTERRUPT hook (question, bold claim, or shocking stat)
@@ -97,8 +97,24 @@ Generate FIVE separate captions, one for each platform. Apply these growth tacti
    - "Subscribe for daily AI tool reviews! 🔔"
    - Tags: #Shorts #AI #AITools #Tech #Innovation #YouTubeShorts
 
+6. **Telegram Channel** (max 900 chars):
+   - Bold hook line with emoji
+   - Short punchy description (2-3 sentences)
+   - Include website link if provided
+   - CTA: "Join our channel for daily AI discoveries!"
+   - Use HTML formatting: <b>bold</b>, <i>italic</i>
+   - Keep hashtags minimal (3-5): #AI #AITools #Tech
+
+7. **Reddit** (r/AItools style):
+   - Write as a helpful community post, NOT promotional
+   - Start with what the tool does and why it's useful
+   - Be informative and genuine (Redditors hate spam)
+   - Include website link naturally in the text
+   - No emojis, no hashtags — Reddit culture
+   - End with "What do you think?" or "Has anyone tried this?"
+
 IMPORTANT: Return ONLY a valid JSON object with exactly these keys:
-{{"x": "...", "linkedin": "...", "instagram": "...", "facebook": "...", "youtube": "..."}}
+{{"x": "...", "linkedin": "...", "instagram": "...", "facebook": "...", "youtube": "...", "telegram_channel": "...", "reddit": "..."}}
 
 Do NOT wrap in markdown code blocks. Return raw JSON only.
 """
@@ -138,7 +154,7 @@ def _generate_with_gemini(
         captions = json.loads(text)
 
         # Validate that all required keys are present
-        required = {"x", "linkedin", "instagram", "facebook", "youtube"}
+        required = {"x", "linkedin", "instagram", "facebook", "youtube", "telegram_channel", "reddit"}
         if required.issubset(captions.keys()):
             logger.info("Gemini AI captions generated for '%s'", tool_name)
             return captions
@@ -237,12 +253,35 @@ def _fallback_captions(
     )
     youtube_caption = "\n\n".join(youtube_parts)
 
+    # Telegram Channel — bold hook + short info
+    tg_parts = [
+        f"🤖 <b>{headline}</b>",
+        f"{desc}" if desc else "A powerful new AI tool worth checking out.",
+    ]
+    if site:
+        tg_parts.append(f"🔗 {site}")
+    tg_parts.append("📢 Join our channel for daily AI discoveries!")
+    tg_parts.append("#AI #AITools #Tech")
+    telegram_channel_caption = "\n\n".join(tg_parts)[:1024]
+
+    # Reddit — genuine community post style
+    reddit_parts = [
+        f"I came across {tool_name} and thought it was worth sharing.",
+        f"{desc}" if desc else f"It's an AI tool that looks pretty useful.",
+    ]
+    if site:
+        reddit_parts.append(f"You can check it out here: {site}")
+    reddit_parts.append("Has anyone else tried this? Would love to hear your thoughts.")
+    reddit_caption = "\n\n".join(reddit_parts)
+
     return {
         "x": x_caption,
         "linkedin": linkedin_caption,
         "instagram": instagram_caption,
         "facebook": facebook_caption,
         "youtube": youtube_caption,
+        "telegram_channel": telegram_channel_caption,
+        "reddit": reddit_caption,
     }
 
 
@@ -263,7 +302,8 @@ def generate_captions(
         handle: Creator/brand social handle.
 
     Returns:
-        Dict with keys ``x``, ``linkedin``, ``instagram``, ``facebook``, ``youtube``.
+        Dict with keys ``x``, ``linkedin``, ``instagram``, ``facebook``, ``youtube``,
+        ``telegram_channel``, ``reddit``.
     """
     # Try Gemini first
     captions = _generate_with_gemini(tool_name, description, website, handle)

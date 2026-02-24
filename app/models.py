@@ -33,6 +33,8 @@ class AITool(Base):
     facebook_status: str = Column(String(20), default="PENDING", nullable=False)
     youtube_status: str = Column(String(20), default="PENDING", nullable=False)
     x_status: str = Column(String(20), default="PENDING", nullable=False)
+    telegram_channel_status: str = Column(String(20), default="PENDING", nullable=False)
+    reddit_status: str = Column(String(20), default="PENDING", nullable=False)
 
     # ── Error log — stores last error details per platform ────────────────
     error_log: str | None = Column(Text, nullable=True)
