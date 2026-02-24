@@ -14,6 +14,7 @@ import functools
 from datetime import datetime, timezone
 from typing import Callable
 
+import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.config import settings
@@ -244,6 +245,21 @@ def check_and_post() -> None:
 
 scheduler = BackgroundScheduler()
 
+# ── Keep-alive ping (prevents Render free-tier from sleeping) ─────────────────
+
+_RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "")
+
+
+def _keep_alive_ping() -> None:
+    """Ping our own /health endpoint to prevent Render free-tier sleep."""
+    if not _RENDER_URL:
+        return
+    try:
+        resp = requests.get(f"{_RENDER_URL}/health", timeout=10)
+        logger.debug("Keep-alive ping: %s", resp.status_code)
+    except Exception as exc:
+        logger.debug("Keep-alive ping failed: %s", exc)
+
 
 def start_scheduler() -> None:
     """Register the polling job and start the scheduler.
@@ -259,6 +275,18 @@ def start_scheduler() -> None:
         id="social_media_poster",
         replace_existing=True,
     )
+
+    # Keep-alive: ping /health every 10 minutes to prevent Render sleep
+    if _RENDER_URL:
+        scheduler.add_job(
+            _keep_alive_ping,
+            "interval",
+            minutes=10,
+            id="keep_alive_ping",
+            replace_existing=True,
+        )
+        logger.info("Keep-alive ping enabled for %s (every 10 min).", _RENDER_URL)
+
     scheduler.start()
     logger.info(
         "Scheduler started — polling every %d minute(s).",

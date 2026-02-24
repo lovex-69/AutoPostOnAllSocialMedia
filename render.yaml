@@ -41,3 +41,5 @@ services:
         value: "3"
       - key: RETRY_BACKOFF_SECONDS
         value: "2"
+      - key: RENDER_EXTERNAL_URL
+        value: "https://execution-posting-api.onrender.com"
