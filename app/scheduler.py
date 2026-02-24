@@ -28,6 +28,7 @@ from app.services.instagram_service import post_to_instagram
 from app.services.facebook_service import post_to_facebook
 from app.services.youtube_service import post_to_youtube
 from app.services.x_service import post_to_x
+from app.services.video_transformer import transform_for_youtube, cleanup_transformed
 from app.services.notification_service import notify_success, notify_failure
 from app.utils.logger import get_logger
 
@@ -216,17 +217,30 @@ def _process_tool(tool: AITool, db) -> None:  # noqa: ANN001
             tool.facebook_status = "SKIPPED"
             logger.info("Facebook: skipped (credentials not configured).")
 
-        # YouTube Shorts
+        # YouTube Shorts  (transform video to avoid Content ID strikes)
+        yt_transformed_path = None
         if settings.YOUTUBE_CLIENT_ID and settings.YOUTUBE_CLIENT_SECRET and settings.YOUTUBE_REFRESH_TOKEN:
             if tool.youtube_status == "SUCCESS":
                 logger.info("YouTube: already SUCCESS — skipping to avoid duplicate.")
             else:
-                youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], video_path)
+                # Transform video: strip audio, add overlay, speed shift
+                if settings.YOUTUBE_TRANSFORM_VIDEO:
+                    yt_video = transform_for_youtube(video_path, tool.tool_name)
+                    if yt_video != video_path:
+                        yt_transformed_path = yt_video
+                else:
+                    yt_video = video_path
+
+                youtube_ok = _post_youtube(tool.tool_name, captions["youtube"], yt_video)
                 tool.youtube_status = "SUCCESS" if youtube_ok else "FAILED"
                 if youtube_ok:
                     success_count += 1
                 else:
                     error_parts.append(f"YouTube: {_post_youtube.last_error or 'posting failed'}")
+
+                # Cleanup transformed file immediately after upload
+                if yt_transformed_path:
+                    cleanup_transformed(yt_transformed_path)
         else:
             tool.youtube_status = "SKIPPED"
             logger.info("YouTube: skipped (credentials not configured).")

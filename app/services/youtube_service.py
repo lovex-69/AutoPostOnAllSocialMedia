@@ -56,14 +56,19 @@ def _initiate_upload(
     if "#Shorts" not in description:
         description = f"#Shorts\n\n{description}"
 
+    # Frame as review/educational content (strengthens fair-use argument)
+    if "review" not in title.lower() and "AI Tool" not in title:
+        title = f"{title} - AI Tool Review"
+
     metadata = {
         "snippet": {
             "title": title[:100],  # Keep titles clean & concise
             "description": description,
             "tags": [
-                "Shorts", "AI", "AI Tools", "Artificial Intelligence",
+                "Shorts", "AI", "AI Tools", "AI Tool Review",
+                "Artificial Intelligence", "Tech Review",
                 "Tech", "Innovation", "AI App", "Machine Learning",
-                "Automation", "Future Tech", "AI Software",
+                "Automation", "Future Tech", "AI Software", "App Review",
             ],
             "categoryId": "28",  # Science & Technology
         },

@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     YOUTUBE_CLIENT_ID: Optional[str] = None
     YOUTUBE_CLIENT_SECRET: Optional[str] = None
     YOUTUBE_REFRESH_TOKEN: Optional[str] = None
+    YOUTUBE_TRANSFORM_VIDEO: bool = True  # Transform video to avoid Content ID
 
     # ── X / Twitter (optional until configured) ──────────────────────────
     X_API_KEY: Optional[str] = None
