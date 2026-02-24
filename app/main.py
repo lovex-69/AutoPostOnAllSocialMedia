@@ -81,7 +81,7 @@ async def serve_frontend():
     return FileResponse(str(STATIC_DIR / "index.html"))
 
 
-@app.get("/health", tags=["ops"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["ops"])
 async def health_check():
-    """Simple liveness probe."""
+    """Simple liveness probe (supports GET + HEAD for UptimeRobot)."""
     return {"status": "healthy"}
