@@ -529,6 +529,70 @@ async def get_analytics(db: Session = Depends(get_db), _auth: bool = Depends(ver
     }
 
 
+# ── Posting Heatmap ──────────────────────────────────────────────────────────
+
+@router.get("/analytics/heatmap")
+async def posting_heatmap(
+    db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_auth),
+):
+    """Return posting activity for the last 365 days as a heatmap grid.
+
+    Response: list of {date: "YYYY-MM-DD", count: N, tools: [...names]}
+    """
+    from datetime import date, timedelta as td
+    from sqlalchemy import cast, Date
+
+    today = date.today()
+    start = today - td(days=364)
+
+    # Group posts by date
+    rows = (
+        db.query(
+            cast(AITool.posted_at, Date).label("day"),
+            func.count(AITool.id).label("cnt"),
+            func.array_agg(AITool.tool_name).label("names"),
+        )
+        .filter(AITool.posted_at.isnot(None))
+        .filter(cast(AITool.posted_at, Date) >= start)
+        .group_by("day")
+        .all()
+    )
+
+    day_map = {r.day: {"count": r.cnt, "tools": r.names or []} for r in rows}
+
+    # Also count READY/FAILED create dates for activity
+    created_rows = (
+        db.query(
+            cast(AITool.created_at, Date).label("day"),
+            func.count(AITool.id).label("cnt"),
+        )
+        .filter(cast(AITool.created_at, Date) >= start)
+        .filter(AITool.posted_at.is_(None))
+        .group_by("day")
+        .all()
+    )
+    for r in created_rows:
+        if r.day in day_map:
+            day_map[r.day]["count"] += r.cnt
+        else:
+            day_map[r.day] = {"count": r.cnt, "tools": []}
+
+    # Fill every day in range
+    result = []
+    d = start
+    while d <= today:
+        entry = day_map.get(d, {"count": 0, "tools": []})
+        result.append({
+            "date": d.isoformat(),
+            "count": entry["count"],
+            "tools": entry["tools"][:5],  # Cap tooltip list
+        })
+        d += td(days=1)
+
+    return result
+
+
 # ── Validate before creating ────────────────────────────────────────────────
 
 @router.post("/tools/validate")

@@ -490,6 +490,18 @@ def start_scheduler() -> None:
     )
     logger.info("Token expiry alert job registered (every 6h, warn at %dd).", _EXPIRY_WARN_DAYS)
 
+    # Telegram bot polling: every 30 seconds
+    if settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID:
+        from app.services.telegram_bot import poll_telegram_updates
+        scheduler.add_job(
+            poll_telegram_updates,
+            "interval",
+            seconds=30,
+            id="telegram_bot_poll",
+            replace_existing=True,
+        )
+        logger.info("Telegram bot polling registered (every 30s).")
+
     scheduler.start()
     logger.info(
         "Scheduler started — polling every %d minute(s).",

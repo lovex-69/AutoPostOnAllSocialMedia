@@ -1,1010 +1,747 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>ExecutionPosting — AI Tools Distribution</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <style>
-        /* ── Reset & Variables ─────────────────────────────── */
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        :root{--bg:#0b0e14;--surface:#131720;--surface-2:#1a1f2e;--border:#252b3b;--text:#e4e8f1;--text-dim:#8891a5;--accent:#6c63ff;--accent-glow:rgba(108,99,255,.35);--green:#34d399;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--orange:#fb923c;--radius:14px;--transition:.25s cubic-bezier(.4,0,.2,1)}
-        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ExecutionPosting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fafbfc;--surface:#fff;--surface-2:#f4f5f7;--border:#e2e4e9;
+  --text:#1a1d23;--text-dim:#6b7280;--accent:#5046e5;--accent-light:#ede9fe;
+  --accent-glow:rgba(80,70,229,.18);--green:#059669;--green-bg:#ecfdf5;
+  --red:#dc2626;--red-bg:#fef2f2;--amber:#d97706;--amber-bg:#fffbeb;
+  --blue:#2563eb;--blue-bg:#eff6ff;
+  --radius:12px;--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 4px 20px rgba(0,0,0,.08);--transition:.2s ease;
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
 
-        /* ── Layout ───────────────────────────────────────── */
-        .app{max-width:1200px;margin:0 auto;padding:2rem 1.5rem 4rem}
-        header{text-align:center;margin-bottom:1.5rem}
-        header h1{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.5px}
-        header p{color:var(--text-dim);margin-top:.4rem;font-size:.95rem}
+/* ── Gate ──────────────────────────────── */
+.gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .5s}
+.gate.hidden{opacity:0;pointer-events:none}
+.gate-box{text-align:center;max-width:380px;padding:2rem}
+.gate-box h1{font-size:1.8rem;font-weight:800;color:var(--accent);margin-bottom:.3rem}
+.gate-box p{color:var(--text-dim);font-size:.88rem;margin-bottom:1.5rem}
+.gate-status{font-size:.82rem;font-weight:600;min-height:1.5rem;margin-bottom:1.2rem;display:flex;align-items:center;justify-content:center;gap:.4rem}
+.input{width:100%;padding:.65rem .9rem;border:1.5px solid var(--border);border-radius:8px;font:inherit;font-size:.9rem;color:var(--text);background:var(--surface);outline:none;transition:border var(--transition)}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.textarea{resize:vertical;min-height:64px}
 
-        /* ── Server bar ───────────────────────────────────── */
-        .server-bar{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.5rem 1rem;border-radius:10px;font-size:.82rem;font-weight:600;margin-bottom:1.5rem;transition:all var(--transition)}
-        .server-bar .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-        .server-bar.checking{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:var(--amber)}
-        .server-bar.checking .dot{background:var(--amber);animation:pulse 1.2s infinite}
-        .server-bar.online{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:var(--green)}
-        .server-bar.online .dot{background:var(--green)}
-        .server-bar.sleeping{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--red)}
-        .server-bar.sleeping .dot{background:var(--red)}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* ── Buttons ──────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.2rem;font:inherit;font-size:.88rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;transition:all var(--transition)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 1px 3px rgba(80,70,229,.3)}
+.btn-primary:hover{background:#4338ca;transform:translateY(-1px);box-shadow:0 4px 12px rgba(80,70,229,.25)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:transparent;color:var(--text-dim);border:1.5px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-xs{padding:.25rem .5rem;font-size:.72rem;border-radius:6px}
+.btn-green{background:var(--green-bg);color:var(--green);border:1px solid #d1fae5}
+.btn-green:hover{background:#d1fae5}
+.btn-red{background:var(--red-bg);color:var(--red);border:1px solid #fecaca}
+.btn-red:hover{background:#fecaca}
+.btn-full{width:100%}
 
-        /* ── Gate overlay ─────────────────────────────────── */
-        .gate-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .5s ease}
-        .gate-overlay.hidden{opacity:0;pointer-events:none}
-        .gate-box{text-align:center;max-width:420px;padding:3rem 2rem}
-        .gate-box h2{font-size:1.6rem;font-weight:800;background:linear-gradient(135deg,var(--accent),#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.8rem}
-        .gate-box p{color:var(--text-dim);font-size:.92rem;margin-bottom:2rem;line-height:1.6}
-        .gate-status{font-size:.85rem;font-weight:600;margin-bottom:1.5rem;min-height:2rem;display:flex;align-items:center;justify-content:center;gap:.4rem}
-        .gate-btn{padding:.9rem 2.5rem;font-size:1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;letter-spacing:.3px;transition:all var(--transition);position:relative}
-        .gate-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}
-        .gate-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+/* ── Layout ───────────────────────────── */
+.app{max-width:1140px;margin:0 auto;padding:1.5rem 1.2rem 4rem;display:none}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.topbar h1{font-size:1.3rem;font-weight:800;color:var(--accent)}
+.topbar-right{display:flex;align-items:center;gap:.8rem}
+.server-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.server-dot.on{background:var(--green)}
+.server-dot.off{background:var(--red)}
+.server-label{font-size:.78rem;font-weight:600;color:var(--text-dim)}
 
-        /* ── Tabs ─────────────────────────────────────────── */
-        .tab-bar{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
-        .tab-btn{padding:.5rem 1.2rem;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text-dim);font-size:.82rem;font-weight:600;cursor:pointer;transition:all var(--transition)}
-        .tab-btn:hover{border-color:var(--accent);color:var(--text)}
-        .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-        .tab-content{display:none}
-        .tab-content.active{display:block}
+/* ── Nav ──────────────────────────────── */
+.nav{display:flex;gap:.25rem;margin-bottom:1.5rem;border-bottom:1.5px solid var(--border);overflow-x:auto}
+.nav-btn{padding:.55rem 1rem;font:inherit;font-size:.82rem;font-weight:600;color:var(--text-dim);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all var(--transition)}
+.nav-btn:hover{color:var(--text)}
+.nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab{display:none}.tab.active{display:block}
 
-        /* ── Grid ─────────────────────────────────────────── */
-        .grid{display:grid;grid-template-columns:1fr 1.3fr;gap:2rem;align-items:start}
-        @media(max-width:860px){.grid{grid-template-columns:1fr}.card.tools-list{order:-1}}
+/* ── Card ─────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem}
+.card-title{font-size:1rem;font-weight:700}
 
-        /* ── Card ─────────────────────────────────────────── */
-        .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.8rem;transition:border-color var(--transition)}
-        .card:hover{border-color:var(--accent)}
-        .card h2{font-size:1.15rem;font-weight:700;margin-bottom:1.4rem;display:flex;align-items:center;gap:.5rem}
-        .card h2 .icon{font-size:1.3rem}
+/* ── Grid ─────────────────────────────── */
+.grid-2{display:grid;grid-template-columns:1fr 1.4fr;gap:1.5rem;align-items:start}
+@media(max-width:860px){.grid-2{grid-template-columns:1fr}}
 
-        /* ── Form ─────────────────────────────────────────── */
-        .form-group{margin-bottom:1.1rem}
-        .form-group label{display:block;font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem}
-        .form-group input,.form-group textarea,.form-group select{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;color:var(--text);font-family:inherit;font-size:.9rem;transition:border-color var(--transition),box-shadow var(--transition);outline:none}
-        .form-group input:focus,.form-group textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
-        .form-group textarea{resize:vertical;min-height:72px}
+/* ── Form ─────────────────────────────── */
+.field{margin-bottom:.9rem}
+.field label{display:block;font-size:.75rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.3rem}
 
-        /* ── Toggle ───────────────────────────────────────── */
-        .video-toggle{display:flex;background:var(--surface-2);border-radius:10px;overflow:hidden;margin-bottom:1rem;border:1px solid var(--border)}
-        .video-toggle button{flex:1;padding:.55rem;font-size:.82rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text-dim);transition:all var(--transition)}
-        .video-toggle button.active{background:var(--accent);color:#fff}
+/* ── Segment ──────────────────────────── */
+.segment{display:flex;background:var(--surface-2);border-radius:8px;padding:3px;gap:2px;margin-bottom:.8rem}
+.segment button{flex:1;padding:.4rem;font:inherit;font-size:.8rem;font-weight:600;border:none;background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;transition:all var(--transition)}
+.segment button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
 
-        /* ── Drop zone ────────────────────────────────────── */
-        .drop-zone{border:2px dashed var(--border);border-radius:12px;padding:2rem 1rem;text-align:center;cursor:pointer;transition:all var(--transition);color:var(--text-dim);font-size:.85rem;position:relative}
-        .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(108,99,255,.06)}
-        .drop-zone input{display:none}
-        .drop-zone .icon-upload{font-size:2rem;margin-bottom:.5rem}
-        .drop-zone .file-name{color:var(--green);font-weight:600;margin-top:.4rem}
+/* ── Drop zone ────────────────────────── */
+.drop{border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;color:var(--text-dim);font-size:.84rem;transition:all var(--transition)}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-light)}
+.drop input{display:none}
+.drop .selected{color:var(--green);font-weight:600;margin-top:.3rem}
 
-        /* ── Buttons ──────────────────────────────────────── */
-        .btn-submit{width:100%;padding:.85rem;font-size:.95rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;letter-spacing:.3px;transition:all var(--transition);margin-top:.5rem;position:relative;overflow:hidden}
-        .btn-submit:hover{transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}
-        .btn-submit:active{transform:translateY(0)}
-        .btn-submit:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
-        .btn-sm{padding:.25rem .6rem;font-size:.7rem;font-weight:600;border:none;border-radius:6px;cursor:pointer;transition:all var(--transition)}
-        .btn-retry{background:rgba(96,165,250,.15);color:var(--blue)}
-        .btn-retry:hover{background:rgba(96,165,250,.3)}
-        .btn-delete{background:rgba(248,113,113,.12);color:var(--red)}
-        .btn-delete:hover{background:rgba(248,113,113,.25)}
-        .btn-refresh{background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);padding:.3rem .7rem;border-radius:8px;cursor:pointer;font-size:.8rem;transition:all var(--transition)}
-        .btn-refresh:hover{border-color:var(--accent);color:var(--text)}
-        .btn-export{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.3);padding:.4rem .9rem;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:600;transition:all var(--transition)}
-        .btn-export:hover{background:rgba(52,211,153,.25)}
+/* ── Video info ───────────────────────── */
+.vid-info{background:var(--surface-2);border-radius:8px;padding:.8rem;font-size:.78rem;margin-top:.5rem}
+.vid-info-grid{display:grid;grid-template-columns:auto 1fr;gap:.2rem .6rem}
+.vid-info-label{color:var(--text-dim);font-weight:600}
+.vid-warn{color:var(--amber);font-size:.76rem;margin-top:.3rem}
 
-        /* ── Toast ────────────────────────────────────────── */
-        .toast{position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;border-radius:12px;font-size:.9rem;font-weight:600;color:#fff;transform:translateY(120%);opacity:0;transition:all .35s ease;z-index:999;max-width:400px}
-        .toast.show{transform:translateY(0);opacity:1}
-        .toast.success{background:linear-gradient(135deg,#059669,#34d399)}
-        .toast.error{background:linear-gradient(135deg,#dc2626,#f87171)}
-        .toast.warning{background:linear-gradient(135deg,#d97706,#fbbf24);color:#000}
+/* ── Tool cards ───────────────────────── */
+.tool-list{display:flex;flex-direction:column;gap:.6rem;max-height:600px;overflow-y:auto;padding-right:.3rem}
+.tool-card{display:flex;align-items:center;gap:.8rem;padding:.8rem;background:var(--surface-2);border-radius:10px;border:1px solid transparent;transition:all var(--transition)}
+.tool-card:hover{border-color:var(--border);box-shadow:var(--shadow)}
+.progress-ring{flex-shrink:0}
+.progress-ring circle{transition:stroke-dashoffset .5s ease}
+.tool-body{flex:1;min-width:0}
+.tool-name{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool-meta{font-size:.72rem;color:var(--text-dim);display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.15rem}
+.tool-platforms{display:flex;gap:.2rem;margin-top:.2rem;flex-wrap:wrap}
+.plat{font-size:.65rem;font-weight:700;padding:.1rem .35rem;border-radius:4px;text-transform:uppercase;letter-spacing:.3px}
+.plat-ok{background:var(--green-bg);color:var(--green)}
+.plat-fail{background:var(--red-bg);color:var(--red)}
+.plat-wait{background:var(--surface-2);color:var(--text-dim);border:1px solid var(--border)}
+.plat-skip{background:var(--surface-2);color:var(--text-dim);text-decoration:line-through}
+.tool-actions{display:flex;gap:.3rem;flex-shrink:0}
+.tool-error{font-size:.68rem;color:var(--red);margin-top:.2rem;word-break:break-word}
+.tool-sched{font-size:.68rem;color:var(--amber);margin-top:.1rem}
 
-        /* ── Table ────────────────────────────────────────── */
-        .tools-list h2{margin-bottom:1rem}
-        .tool-table{width:100%;border-collapse:collapse;font-size:.82rem}
-        .tool-table th{text-align:left;padding:.6rem .7rem;color:var(--text-dim);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
-        .tool-table td{padding:.65rem .7rem;border-bottom:1px solid var(--border);vertical-align:middle}
-        .tool-table tr:last-child td{border-bottom:none}
-        .tool-table tr{transition:background var(--transition)}
-        .tool-table tr:hover{background:rgba(108,99,255,.04)}
+/* ── Badge ────────────────────────────── */
+.badge{display:inline-block;padding:.12rem .5rem;border-radius:99px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.badge-ready{background:var(--blue-bg);color:var(--blue)}
+.badge-posted{background:var(--green-bg);color:var(--green)}
+.badge-failed{background:var(--red-bg);color:var(--red)}
+.badge-draft{background:var(--surface-2);color:var(--text-dim)}
 
-        /* ── Badges ───────────────────────────────────────── */
-        .badge{display:inline-block;padding:.15rem .55rem;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
-        .badge-ready{background:rgba(96,165,250,.15);color:var(--blue)}
-        .badge-posted{background:rgba(52,211,153,.15);color:var(--green)}
-        .badge-failed{background:rgba(248,113,113,.15);color:var(--red)}
-        .badge-draft{background:rgba(136,145,165,.15);color:var(--text-dim)}
-        .badge-pending{background:rgba(251,191,36,.12);color:var(--amber)}
-        .badge-success{background:rgba(52,211,153,.15);color:var(--green)}
-        .badge-skipped{background:rgba(136,145,165,.12);color:var(--text-dim)}
+/* ── Stats ────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.8rem;margin-bottom:1.5rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem;text-align:center;box-shadow:var(--shadow)}
+.stat-val{font-size:1.6rem;font-weight:800;color:var(--accent)}
+.stat-label{font-size:.7rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-top:.15rem}
 
-        .platform-detail{display:grid;grid-template-columns:1fr 1fr;gap:.25rem .6rem;font-size:.78rem}
-        .platform-detail .p-row{display:flex;align-items:center;gap:.35rem}
-        .platform-detail .p-label{color:var(--text-dim);font-weight:600;min-width:2rem}
-        .schedule-info{font-size:.72rem;color:var(--amber);margin-top:.2rem}
-        .error-log{font-size:.7rem;color:var(--red);margin-top:.3rem;max-width:300px;word-break:break-word}
+/* ── Progress bars ────────────────────── */
+.platform-row{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--surface-2)}
+.platform-row:last-child{border-bottom:none}
+.platform-row .name{min-width:70px;font-size:.82rem;font-weight:600}
+.track{flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.track-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .5s}
+.platform-row .rate{font-size:.78rem;font-weight:700;min-width:40px;text-align:right}
 
-        .empty-state{text-align:center;padding:3rem 1rem;color:var(--text-dim)}
-        .empty-state .icon{font-size:2.5rem;margin-bottom:.5rem}
+/* ── Heatmap ──────────────────────────── */
+.heatmap-wrap{margin-top:1.5rem}
+.heatmap-title{font-size:.88rem;font-weight:700;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.heatmap{display:flex;gap:2px;overflow-x:auto;padding-bottom:.5rem}
+.heatmap-col{display:flex;flex-direction:column;gap:2px}
+.heatmap-cell{width:12px;height:12px;border-radius:2px;background:var(--surface-2);border:1px solid var(--border);cursor:default;transition:transform .15s}
+.heatmap-cell:hover{transform:scale(1.5);z-index:1}
+.heatmap-cell[data-lvl="1"]{background:#c7d2fe;border-color:#a5b4fc}
+.heatmap-cell[data-lvl="2"]{background:#818cf8;border-color:#6366f1}
+.heatmap-cell[data-lvl="3"]{background:#6366f1;border-color:#4f46e5}
+.heatmap-cell[data-lvl="4"]{background:#4f46e5;border-color:#4338ca}
+.heatmap-legend{display:flex;align-items:center;gap:.3rem;margin-top:.5rem;font-size:.7rem;color:var(--text-dim)}
+.heatmap-legend .cell{width:12px;height:12px;border-radius:2px;border:1px solid var(--border)}
+.heatmap-months{display:flex;gap:2px;margin-bottom:.3rem;padding-left:0}
+.heatmap-months span{font-size:.65rem;color:var(--text-dim);text-align:center}
 
-        /* ── Analytics ────────────────────────────────────── */
-        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:2rem}
-        .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem;text-align:center}
-        .stat-card .stat-value{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .stat-card .stat-label{font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-top:.3rem}
-        .platform-bar{display:flex;align-items:center;gap:.8rem;padding:.6rem 0;border-bottom:1px solid var(--border)}
-        .platform-bar:last-child{border-bottom:none}
-        .platform-bar .p-name{min-width:80px;font-weight:600;font-size:.85rem}
-        .progress-track{flex:1;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden}
-        .progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .5s ease}
-        .platform-bar .p-rate{font-size:.8rem;font-weight:700;min-width:45px;text-align:right}
+/* ── Token health ─────────────────────── */
+.health-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem}
+.health-card{background:var(--surface-2);border-radius:10px;padding:.9rem;border-left:3px solid var(--border)}
+.health-card.ok{border-left-color:var(--green)}
+.health-card.warn{border-left-color:var(--amber)}
+.health-card.err{border-left-color:var(--red)}
+.health-card h4{font-size:.85rem;font-weight:700;margin-bottom:.3rem}
+.health-card .detail{font-size:.75rem;color:var(--text-dim)}
 
-        /* ── Token health ─────────────────────────────────── */
-        .token-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
-        .token-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem}
-        .token-card h3{font-size:.9rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
-        .token-card .token-status{font-size:.78rem;margin-bottom:.3rem}
-        .token-card .token-detail{font-size:.72rem;color:var(--text-dim)}
+/* ── Limits (inline in form) ──────────── */
+.limits-inline{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-top:.5rem}
+.limit-chip{background:var(--surface-2);border-radius:8px;padding:.5rem .6rem;font-size:.72rem}
+.limit-chip strong{display:block;font-size:.78rem;margin-bottom:.15rem;color:var(--text)}
+.limit-chip span{color:var(--text-dim)}
 
-        /* ── Bulk upload ──────────────────────────────────── */
-        .bulk-area textarea{min-height:200px;font-family:'Courier New',monospace;font-size:.82rem}
+/* ── Schedule sidebar ─────────────────── */
+.sched-list{list-style:none}
+.sched-item{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-radius:8px;cursor:pointer;font-size:.78rem;transition:all var(--transition);border:1px solid transparent;margin-bottom:.3rem}
+.sched-item:hover{background:var(--accent-light);border-color:var(--accent)}
+.sched-item.prime{border-left:3px solid var(--green)}
+.sched-time{font-weight:700;min-width:90px;color:var(--text)}
+.sched-plat{color:var(--accent);font-weight:600;min-width:60px}
+.sched-reason{color:var(--text-dim);flex:1}
 
-        /* ── Warning modal ────────────────────────────────── */
-        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:900;opacity:0;pointer-events:none;transition:opacity .3s ease}
-        .modal-overlay.show{opacity:1;pointer-events:all}
-        .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;transform:scale(.9);transition:transform .3s ease}
-        .modal-overlay.show .modal{transform:scale(1)}
-        .modal h3{font-size:1.1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+/* ── Toast ────────────────────────────── */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:.8rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:600;transform:translateY(120%);opacity:0;transition:all .35s;z-index:999;max-width:380px;box-shadow:var(--shadow-lg)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:var(--green-bg);color:var(--green);border:1px solid #a7f3d0}
+.toast.error{background:var(--red-bg);color:var(--red);border:1px solid #fca5a5}
+.toast.warning{background:var(--amber-bg);color:var(--amber);border:1px solid #fde68a}
 
-        /* ── Warning items ────────────────────────────────── */
-        .warning-list{list-style:none;margin-bottom:1.5rem}
-        .warning-item{padding:.8rem 1rem;border-radius:10px;margin-bottom:.6rem;font-size:.85rem;line-height:1.5;display:flex;gap:.6rem;align-items:flex-start}
-        .warning-item.severity-warning{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);color:var(--amber)}
-        .warning-item.severity-info{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);color:var(--blue)}
-        .warning-item.severity-error{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:var(--red)}
-        .warning-icon{font-size:1.2rem;flex-shrink:0;margin-top:.1rem}
-        .warning-text{flex:1}
+/* ── Modal ────────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:900;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-bg.show{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:14px;padding:1.8rem;max-width:520px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-lg);transform:scale(.95);transition:transform .25s}
+.modal-bg.show .modal{transform:scale(1)}
+.modal h3{font-size:1rem;font-weight:700;margin-bottom:1rem}
+.modal-foot{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.2rem}
 
-        /* ── Video info card ──────────────────────────────── */
-        .video-info{background:var(--surface-2);border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:.82rem}
-        .video-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem}
-        .video-info-label{color:var(--text-dim);font-weight:600}
-        .video-info-value{color:var(--text)}
+/* ── Warning items ────────────────────── */
+.warn-list{list-style:none;margin-bottom:1rem}
+.warn-item{padding:.55rem .8rem;border-radius:8px;margin-bottom:.4rem;font-size:.82rem;display:flex;gap:.5rem;align-items:flex-start}
+.warn-item.w-warn{background:var(--amber-bg);color:#92400e;border:1px solid #fde68a}
+.warn-item.w-error{background:var(--red-bg);color:var(--red);border:1px solid #fca5a5}
+.warn-item.w-info{background:var(--blue-bg);color:var(--blue);border:1px solid #bfdbfe}
+.dup-box{background:var(--red-bg);border:1px solid #fca5a5;border-radius:8px;padding:.7rem;margin-bottom:.8rem;font-size:.8rem}
+.dup-box strong{color:var(--red)}
+.queue-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .7rem;background:var(--accent-light);border-radius:6px;font-size:.75rem;color:var(--accent);font-weight:600;margin-top:.5rem}
 
-        /* ── Queue estimate ───────────────────────────────── */
-        .queue-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .8rem;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.25);border-radius:8px;font-size:.78rem;color:var(--accent);font-weight:600;margin-top:.5rem}
+/* ── Bulk ─────────────────────────────── */
+.bulk-area textarea{min-height:180px;font-family:'JetBrains Mono',monospace;font-size:.8rem}
 
-        /* ── Platform limits ──────────────────────────────── */
-        .limits-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem;margin-top:1rem}
-        .limit-card{background:var(--surface-2);border-radius:10px;padding:.8rem 1rem;font-size:.8rem}
-        .limit-card h4{font-size:.85rem;font-weight:700;margin-bottom:.4rem;color:var(--text)}
-        .limit-row{display:flex;justify-content:space-between;color:var(--text-dim);padding:.15rem 0}
-        .limit-value{color:var(--text);font-weight:600}
+/* ── Confetti ─────────────────────────── */
+.confetti-piece{position:fixed;width:8px;height:8px;border-radius:2px;z-index:9999;pointer-events:none;animation:confetti-fall 1.5s ease-out forwards}
+@keyframes confetti-fall{0%{opacity:1;transform:translateY(0) rotate(0deg)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
 
-        /* ── Schedule suggestions ─────────────────────────── */
-        .suggest-list{list-style:none;margin-top:1rem}
-        .suggest-item{display:flex;align-items:center;gap:.8rem;padding:.7rem 1rem;background:var(--surface-2);border-radius:10px;margin-bottom:.5rem;font-size:.82rem;cursor:pointer;transition:all var(--transition);border:1px solid transparent}
-        .suggest-item:hover{border-color:var(--accent);background:rgba(108,99,255,.06)}
-        .suggest-item.prime{border-left:3px solid var(--green)}
-        .suggest-time{font-weight:700;min-width:120px}
-        .suggest-platform{color:var(--accent);font-weight:600;min-width:80px}
-        .suggest-reason{color:var(--text-dim);flex:1}
+/* ── Spinner ──────────────────────────── */
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .6s linear infinite}
+.spin.white{border-color:rgba(255,255,255,.3);border-top-color:#fff}
+@keyframes sp{to{transform:rotate(360deg)}}
 
-        /* ── Modal buttons ────────────────────────────────── */
-        .modal-actions{display:flex;gap:.8rem;justify-content:flex-end;flex-wrap:wrap}
-        .btn-cancel{padding:.7rem 1.5rem;font-size:.88rem;font-weight:600;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--surface-2);color:var(--text-dim);transition:all var(--transition)}
-        .btn-cancel:hover{border-color:var(--red);color:var(--red)}
-        .btn-confirm{padding:.7rem 1.5rem;font-size:.88rem;font-weight:700;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;transition:all var(--transition)}
-        .btn-confirm:hover{transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow)}
-        .btn-confirm:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
-
-        /* ── Spinner ──────────────────────────────────────── */
-        .spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:.4rem}
-        .spinner.sm{width:14px;height:14px;border-width:2px;margin:0}
-        @keyframes spin{to{transform:rotate(360deg)}}
-
-        /* ── Mobile responsive ────────────────────────────── */
-        @media(max-width:600px){
-            .app{padding:1rem .8rem 3rem}
-            header h1{font-size:1.6rem}
-            .tab-bar{gap:.3rem}
-            .tab-btn{padding:.4rem .7rem;font-size:.75rem}
-            .card{padding:1.2rem}
-            .stats-grid{grid-template-columns:repeat(2,1fr)}
-            .token-grid{grid-template-columns:1fr}
-            .limits-grid{grid-template-columns:1fr}
-            .modal{padding:1.2rem;width:95%}
-            .modal-actions{flex-direction:column}
-            .modal-actions button{width:100%}
-            .tool-table{font-size:.73rem}
-            .tool-table th,.tool-table td{padding:.4rem .3rem}
-            .platform-detail{grid-template-columns:1fr}
-            .suggest-item{flex-wrap:wrap;gap:.4rem}
-            .suggest-time{min-width:auto}
-        }
-    </style>
+/* ── Responsive ───────────────────────── */
+@media(max-width:600px){
+  .app{padding:1rem .6rem 3rem}
+  .topbar h1{font-size:1.1rem}
+  .nav-btn{padding:.4rem .6rem;font-size:.76rem}
+  .card{padding:1rem}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .health-grid{grid-template-columns:1fr}
+  .limits-inline{grid-template-columns:1fr}
+  .modal{padding:1.2rem;width:96%}
+  .modal-foot{flex-direction:column}
+  .modal-foot button{width:100%}
+  .heatmap-cell{width:10px;height:10px}
+}
+</style>
 </head>
 <body>
-    <!-- ── Gate Overlay ───────────────────────────────────── -->
-    <div class="gate-overlay" id="gateOverlay">
-        <div class="gate-box">
-            <h2>ExecutionPosting</h2>
-            <p>Automated multi-platform AI tool distribution.<br>The backend server may be sleeping — tap below to wake it up.</p>
-            <div class="form-group" style="margin-bottom:1.2rem;text-align:left;">
-                <label for="gatePassword">Access Key</label>
-                <input type="password" id="gatePassword" placeholder="Enter your secret key" />
+
+<!-- ── Gate ──────────────────────────────────── -->
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h1>ExecutionPosting</h1>
+    <p>Automated multi-platform distribution for AI tools</p>
+    <div class="field" style="text-align:left;margin-bottom:1rem">
+      <label>Access Key</label>
+      <input type="password" class="input" id="gateKey" placeholder="Enter secret key"/>
+    </div>
+    <div class="gate-status" id="gateSt"><span class="spin"></span> Checking server...</div>
+    <button class="btn btn-primary btn-full" id="gateBtn" onclick="wake()">Connect</button>
+  </div>
+</div>
+
+<!-- ── Warning Modal ────────────────────────── -->
+<div class="modal-bg" id="warnModal">
+  <div class="modal">
+    <h3>Review Before Posting</h3>
+    <div id="warnBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeWarn()">Cancel</button>
+      <button class="btn btn-primary" id="warnConfirm" onclick="forceSubmit()">Post Anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── App ───────────────────────────────────── -->
+<div class="app" id="app">
+  <div class="topbar">
+    <h1>ExecutionPosting</h1>
+    <div class="topbar-right">
+      <span class="server-dot on" id="sDot"></span>
+      <span class="server-label" id="sLabel">Online</span>
+      <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <button class="nav-btn active" data-tab="tPost" onclick="nav('tPost',this)">Post</button>
+    <button class="nav-btn" data-tab="tActivity" onclick="nav('tActivity',this)">Activity</button>
+    <button class="nav-btn" data-tab="tAnalytics" onclick="nav('tAnalytics',this)">Analytics</button>
+    <button class="nav-btn" data-tab="tHealth" onclick="nav('tHealth',this)">Health</button>
+    <button class="nav-btn" data-tab="tBulk" onclick="nav('tBulk',this)">Bulk</button>
+  </nav>
+
+  <!-- ═══ POST TAB ═══ -->
+  <div class="tab active" id="tPost">
+    <div class="grid-2">
+      <div>
+        <!-- Form card -->
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-header"><span class="card-title">New Tool</span></div>
+          <form id="frm">
+            <div class="field"><label>Tool Name *</label><input class="input" id="fName" required placeholder="e.g. ChatGPT"/></div>
+            <div class="field"><label>Handle</label><input class="input" id="fHandle" placeholder="@openai"/></div>
+            <div class="field"><label>Description</label><textarea class="input textarea" id="fDesc" placeholder="Brief description..."></textarea></div>
+            <div class="field"><label>Website</label><input class="input" id="fWeb" type="url" placeholder="https://..."/></div>
+
+            <label style="font-size:.75rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.3rem;display:block">Video *</label>
+            <div class="segment">
+              <button type="button" class="active" id="segUrl" onclick="vidMode('url')">Paste URL</button>
+              <button type="button" id="segFile" onclick="vidMode('file')">Upload</button>
             </div>
-            <div class="gate-status" id="gateStatus">
-                <span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--text-dim);display:inline-block;"></span>
-                Checking server status...
+            <div class="field" id="urlField"><input class="input" id="fUrl" placeholder="https://example.com/video.mp4"/></div>
+            <div id="fileField" style="display:none">
+              <div class="drop" id="dropZone">
+                <div>Drop MP4 here or <strong>click to browse</strong></div>
+                <div class="selected" id="fFileName"></div>
+                <input type="file" id="fFile" accept="video/mp4,video/quicktime,video/webm"/>
+              </div>
+              <div id="vidPreview" style="display:none"></div>
             </div>
-            <button class="gate-btn" id="gateBtn" onclick="wakeServer()">Unlock &amp; Wake Up Server</button>
+
+            <div class="field" style="margin-top:.8rem">
+              <label>Schedule (optional)</label>
+              <input class="input" type="datetime-local" id="fSched" style="color-scheme:light"/>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:.2rem">Leave empty = post ASAP. <a href="#" onclick="event.preventDefault();nav('tPost',document.querySelector('[data-tab=tPost]'));document.getElementById('schedSidebar').scrollIntoView({behavior:'smooth'})">See best times ↓</a></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full" id="submitBtn">Submit & Queue</button>
+          </form>
         </div>
+
+        <!-- Schedule suggestions (inline) -->
+        <div class="card" id="schedSidebar">
+          <div class="card-header"><span class="card-title">Best Times to Post</span><button class="btn btn-ghost btn-xs" onclick="loadSched()">Refresh</button></div>
+          <div id="schedBox"><div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div></div>
+        </div>
+      </div>
+
+      <!-- Right: Tool list -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Queue</span>
+          <button class="btn btn-ghost btn-xs" onclick="loadTools()">Refresh</button>
+        </div>
+        <div id="toolBox"><div style="text-align:center;padding:2rem;color:var(--text-dim)">No tools yet</div></div>
+      </div>
     </div>
 
-    <!-- ── Warning / Confirmation Modal ───────────────────── -->
-    <div class="modal-overlay" id="warningModal">
-        <div class="modal">
-            <h3 id="modalTitle">&#x26A0;&#xFE0F; Review Before Posting</h3>
-            <div id="modalBody"></div>
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="btn-confirm" id="modalConfirmBtn" onclick="confirmSubmit()">Post Anyway</button>
-            </div>
-        </div>
+    <!-- Platform limits (collapsed) -->
+    <details style="margin-top:1rem">
+      <summary style="cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-dim)">Platform Video Limits</summary>
+      <div id="limitsBox" style="margin-top:.5rem"></div>
+    </details>
+  </div>
+
+  <!-- ═══ ACTIVITY TAB ═══ -->
+  <div class="tab" id="tActivity">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Posting Activity</span></div>
+      <div id="heatmapBox"><div style="text-align:center;padding:2rem;color:var(--text-dim)"><span class="spin"></span> Loading heatmap...</div></div>
     </div>
 
-    <!-- ── Main App ───────────────────────────────────────── -->
-    <div class="app" id="mainApp" style="display:none;">
-        <header>
-            <h1>ExecutionPosting</h1>
-            <p>Submit AI tools for automated multi-platform distribution</p>
-        </header>
-
-        <div class="server-bar online" id="serverBar" style="justify-content:space-between;">
-            <div style="display:flex;align-items:center;gap:.5rem;">
-                <span class="dot"></span>
-                <span id="serverText">Server Online</span>
-            </div>
-            <button onclick="logout()" style="background:transparent;border:1px solid rgba(248,113,113,.3);color:var(--red);padding:.2rem .6rem;border-radius:6px;font-size:.72rem;font-weight:600;cursor:pointer;">Logout</button>
-        </div>
-
-        <!-- ── Tab bar ────────────────────────────────────── -->
-        <div class="tab-bar">
-            <button class="tab-btn active" data-tab="postTab" onclick="switchTab('postTab',this)">&#x1F4E4; Post</button>
-            <button class="tab-btn" data-tab="analyticsTab" onclick="switchTab('analyticsTab',this)">&#x1F4CA; Analytics</button>
-            <button class="tab-btn" data-tab="bulkTab" onclick="switchTab('bulkTab',this)">&#x1F4E6; Bulk</button>
-            <button class="tab-btn" data-tab="healthTab" onclick="switchTab('healthTab',this)">&#x1F6E1; Health</button>
-            <button class="tab-btn" data-tab="limitsTab" onclick="switchTab('limitsTab',this)">&#x1F4CF; Limits</button>
-            <button class="tab-btn" data-tab="scheduleTab" onclick="switchTab('scheduleTab',this)">&#x1F552; Schedule</button>
-        </div>
-
-        <!-- ═══════════ POST TAB ═══════════ -->
-        <div class="tab-content active" id="postTab">
-            <div class="grid">
-                <!-- Left: Form -->
-                <div class="card" id="formCard">
-                    <h2><span class="icon">+</span> New AI Tool</h2>
-                    <form id="toolForm" enctype="multipart/form-data">
-                        <div class="form-group">
-                            <label for="tool_name">Tool Name *</label>
-                            <input type="text" id="tool_name" name="tool_name" required placeholder="e.g. ChatGPT" />
-                        </div>
-                        <div class="form-group">
-                            <label for="handle">Creator Handle</label>
-                            <input type="text" id="handle" name="handle" placeholder="@openai" />
-                        </div>
-                        <div class="form-group">
-                            <label for="description">Description</label>
-                            <textarea id="description" name="description" placeholder="A brief description of the tool..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="website">Website</label>
-                            <input type="url" id="website" name="website" placeholder="https://example.com" />
-                        </div>
-
-                        <label style="font-size:.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.35rem;display:block;">Video *</label>
-                        <div class="video-toggle">
-                            <button type="button" id="btnUrl" class="active" onclick="toggleVideo('url')">Paste URL</button>
-                            <button type="button" id="btnUpload" onclick="toggleVideo('upload')">Upload File</button>
-                        </div>
-
-                        <div class="form-group" id="urlGroup">
-                            <input type="text" id="video_url" placeholder="https://example.com/video.mp4" />
-                        </div>
-
-                        <div id="uploadGroup" style="display:none;">
-                            <div class="drop-zone" id="dropZone">
-                                <div class="icon-upload">&#8679;</div>
-                                <div>Drag &amp; drop MP4 here or <strong>click to browse</strong></div>
-                                <div class="file-name" id="fileName"></div>
-                                <input type="file" id="video_file" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" />
-                            </div>
-                            <!-- Client-side video preview -->
-                            <div id="clientVideoInfo" style="display:none;margin-top:.6rem;"></div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="scheduled_at">Schedule (optional)</label>
-                            <input type="datetime-local" id="scheduled_at" name="scheduled_at" style="color-scheme:dark;" />
-                            <div style="font-size:.7rem;color:var(--text-dim);margin-top:.25rem;">Leave empty to post immediately. <a href="#" onclick="event.preventDefault();switchTab('scheduleTab',document.querySelector('[data-tab=scheduleTab]'))" style="color:var(--accent);">See best times &#x2192;</a></div>
-                        </div>
-
-                        <button type="submit" class="btn-submit" id="submitBtn">Submit &amp; Queue for Posting</button>
-                    </form>
-                </div>
-
-                <!-- Right: Tools List -->
-                <div class="card tools-list">
-                    <h2 style="justify-content:space-between;">
-                        <span><span class="icon">&#9776;</span> Queued Tools</span>
-                        <button class="btn-refresh" onclick="loadTools()">Refresh</button>
-                    </h2>
-                    <div id="toolsContainer">
-                        <div class="empty-state"><div class="icon">&#x1F4E6;</div><p>No tools submitted yet</p></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════ ANALYTICS TAB ═══════════ -->
-        <div class="tab-content" id="analyticsTab">
-            <div class="card">
-                <h2 style="justify-content:space-between;">
-                    <span><span class="icon">&#x1F4CA;</span> Posting Analytics</span>
-                    <button class="btn-export" onclick="exportCSV()">&#x1F4E5; Export CSV</button>
-                </h2>
-                <div id="analyticsContent">
-                    <div class="empty-state"><span class="spinner sm"></span> Loading analytics...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════ BULK UPLOAD TAB ═══════════ -->
-        <div class="tab-content" id="bulkTab">
-            <div class="card bulk-area">
-                <h2><span class="icon">&#x1F4E6;</span> Bulk Upload</h2>
-                <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:1rem;">
-                    Paste a JSON array of tools. Each object needs <code style="color:var(--accent);">tool_name</code> and <code style="color:var(--accent);">video_url</code>.
-                    Optional: <code style="color:var(--accent);">handle</code>, <code style="color:var(--accent);">description</code>, <code style="color:var(--accent);">website</code>, <code style="color:var(--accent);">scheduled_at</code>.
-                </p>
-                <div class="form-group">
-                    <textarea id="bulkJson" placeholder='[
-  {"tool_name": "ChatGPT", "video_url": "https://example.com/chatgpt.mp4", "description": "AI chatbot"},
-  {"tool_name": "Midjourney", "video_url": "https://example.com/mj.mp4", "website": "https://midjourney.com"}
-]'></textarea>
-                </div>
-                <button class="btn-submit" id="bulkBtn" onclick="bulkUpload()">Upload All Tools</button>
-                <div id="bulkResult" style="margin-top:1rem;font-size:.85rem;"></div>
-            </div>
-        </div>
-
-        <!-- ═══════════ TOKEN HEALTH TAB ═══════════ -->
-        <div class="tab-content" id="healthTab">
-            <div class="card">
-                <h2><span class="icon">&#x1F6E1;</span> Token &amp; Service Health</h2>
-                <div id="healthContent">
-                    <div class="empty-state"><span class="spinner sm"></span> Checking tokens...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════ PLATFORM LIMITS TAB ═══════════ -->
-        <div class="tab-content" id="limitsTab">
-            <div class="card">
-                <h2><span class="icon">&#x1F4CF;</span> Platform Video Limits</h2>
-                <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:.5rem;">Maximum duration and file size limits per platform. Videos exceeding these limits may be rejected.</p>
-                <div id="limitsContent">
-                    <div class="empty-state"><span class="spinner sm"></span> Loading limits...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════ SMART SCHEDULE TAB ═══════════ -->
-        <div class="tab-content" id="scheduleTab">
-            <div class="card">
-                <h2><span class="icon">&#x1F552;</span> Smart Scheduling</h2>
-                <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:.5rem;">AI-recommended optimal posting times based on platform engagement research. Click a suggestion to auto-fill the schedule.</p>
-                <div id="scheduleContent">
-                    <div class="empty-state"><span class="spinner sm"></span> Computing best times...</div>
-                </div>
-            </div>
-        </div>
+    <div class="card" style="margin-top:1rem">
+      <div class="card-header"><span class="card-title">Recent Posts</span></div>
+      <div id="recentBox"><div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div></div>
     </div>
+  </div>
 
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
+  <!-- ═══ ANALYTICS TAB ═══ -->
+  <div class="tab" id="tAnalytics">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Analytics</span>
+        <button class="btn btn-green btn-xs" onclick="exportCSV()">Export CSV</button>
+      </div>
+      <div id="analyticsBox"><div style="text-align:center;padding:2rem;color:var(--text-dim)"><span class="spin"></span></div></div>
+    </div>
+  </div>
 
-    <script src="config.js"></script>
-    <script>
-    // ═══════════════════════════════════════════════════════════
-    // CONFIG
-    // ═══════════════════════════════════════════════════════════
-    const API_BASE = window.EXECUTION_API_URL || '';
-    let _pendingFormData = null;
+  <!-- ═══ HEALTH TAB ═══ -->
+  <div class="tab" id="tHealth">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Token & Service Health</span></div>
+      <div id="healthBox"><div style="text-align:center;padding:2rem;color:var(--text-dim)"><span class="spin"></span></div></div>
+    </div>
+  </div>
 
-    // ── Auth helpers ──────────────────────────────────────────
-    function getAuthKey() { return sessionStorage.getItem('ep_auth_key') || ''; }
-    function authHeaders() { return { 'X-Auth-Key': getAuthKey() }; }
-    function logout() { sessionStorage.removeItem('ep_auth_key'); location.reload(); }
+  <!-- ═══ BULK TAB ═══ -->
+  <div class="tab" id="tBulk">
+    <div class="card bulk-area">
+      <div class="card-header"><span class="card-title">Bulk Upload</span></div>
+      <p style="color:var(--text-dim);font-size:.82rem;margin-bottom:.8rem">Paste a JSON array. Each object needs <code style="color:var(--accent)">tool_name</code> and <code style="color:var(--accent)">video_url</code>.</p>
+      <div class="field"><textarea class="input textarea" id="bulkJson" style="min-height:180px;font-family:monospace" placeholder='[{"tool_name":"ChatGPT","video_url":"https://..."}]'></textarea></div>
+      <button class="btn btn-primary btn-full" id="bulkBtn" onclick="bulkUp()">Upload All</button>
+      <div id="bulkRes" style="margin-top:.8rem;font-size:.82rem"></div>
+    </div>
+  </div>
+</div>
 
-    // ── Gate / Wake-up logic ──────────────────────────────────
-    let serverOnline = false;
+<div class="toast" id="toast"></div>
 
-    async function checkServer() {
-        try { const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) }); return r.ok; }
-        catch { return false; }
+<script src="config.js"></script>
+<script>
+const A = window.EXECUTION_API_URL || '';
+let _pfd = null; // pending FormData for force-submit
+
+// ── Helpers ──────────────────────────────────
+function auth() { return sessionStorage.getItem('ep_k') || ''; }
+function hdr() { return {'X-Auth-Key': auth()}; }
+function logout() { sessionStorage.removeItem('ep_k'); location.reload(); }
+function esc(s) { if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function toast(m, t='success') { const e=document.getElementById('toast'); e.textContent=m; e.className=`toast ${t} show`; setTimeout(()=>e.classList.remove('show'),4000); }
+
+// ── Gate ─────────────────────────────────────
+async function chk() { try { const r=await fetch(`${A}/health`,{signal:AbortSignal.timeout(8000)}); return r.ok; } catch{return false;} }
+async function chkAuth(k) { try { const r=await fetch(`${A}/api/tools`,{headers:{'X-Auth-Key':k},signal:AbortSignal.timeout(10000)}); return r.ok; } catch{return false;} }
+
+(async()=>{
+  const st=document.getElementById('gateSt'), btn=document.getElementById('gateBtn'), k=auth();
+  const on=await chk();
+  if(on&&k){if(await chkAuth(k)){enter();return;}}
+  st.innerHTML=on?'<span style="color:var(--green)">● Server online</span>':'<span style="color:var(--red)">● Server sleeping</span>';
+  btn.disabled=false;
+})();
+
+async function wake(){
+  const st=document.getElementById('gateSt'),btn=document.getElementById('gateBtn'),k=document.getElementById('gateKey').value.trim();
+  if(!k){st.innerHTML='<span style="color:var(--red)">Enter your access key</span>';return;}
+  btn.disabled=true; btn.innerHTML='<span class="spin white"></span> Connecting...';
+  st.innerHTML='<span class="spin"></span> Waking server...';
+  const t=Date.now();
+  while(Date.now()-t<90000){
+    if(await chk()){
+      if(await chkAuth(k)){sessionStorage.setItem('ep_k',k);enter();return;}
+      else{st.innerHTML='<span style="color:var(--red)">Invalid key</span>';btn.disabled=false;btn.textContent='Connect';return;}
     }
+    await new Promise(r=>setTimeout(r,5000));
+  }
+  st.innerHTML='<span style="color:var(--red)">Server didn\'t respond</span>';btn.disabled=false;btn.textContent='Connect';
+}
+document.getElementById('gateKey').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();wake();}});
 
-    async function checkAuth(key) {
-        try { const r = await fetch(`${API_BASE}/api/tools`, { headers: { 'X-Auth-Key': key }, signal: AbortSignal.timeout(10000) }); return r.ok; }
-        catch { return false; }
+function enter(){
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').style.display='block';
+  loadTools(); loadSched(); loadLimits();
+}
+
+// ── Server pulse ─────────────────────────────
+setInterval(async()=>{
+  const on=await chk();
+  document.getElementById('sDot').className=`server-dot ${on?'on':'off'}`;
+  document.getElementById('sLabel').textContent=on?'Online':'Sleeping';
+},60000);
+
+// ── Nav ──────────────────────────────────────
+function nav(id,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='tActivity'){loadHeatmap();loadRecent();}
+  if(id==='tAnalytics')loadAnalytics();
+  if(id==='tHealth')loadHealth();
+}
+
+// ── Video mode toggle ────────────────────────
+function vidMode(m){
+  document.getElementById('segUrl').classList.toggle('active',m==='url');
+  document.getElementById('segFile').classList.toggle('active',m==='file');
+  document.getElementById('urlField').style.display=m==='url'?'block':'none';
+  document.getElementById('fileField').style.display=m==='file'?'block':'none';
+  if(m==='url'){document.getElementById('fFile').value='';document.getElementById('vidPreview').style.display='none';}
+  if(m==='file')document.getElementById('fUrl').value='';
+}
+
+// ── Drop zone ────────────────────────────────
+const dz=document.getElementById('dropZone'),fi=document.getElementById('fFile');
+dz.addEventListener('click',()=>fi.click());
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files.length){fi.files=e.dataTransfer.files;onFile(fi.files[0]);}});
+fi.addEventListener('change',()=>{if(fi.files.length)onFile(fi.files[0]);});
+
+function onFile(f){
+  document.getElementById('fFileName').textContent=f.name;
+  const mb=(f.size/1048576).toFixed(1), prev=document.getElementById('vidPreview');
+  let h=`<div class="vid-info"><div class="vid-info-grid"><span class="vid-info-label">File</span><span>${esc(f.name)}</span><span class="vid-info-label">Size</span><span>${mb} MB</span><span class="vid-info-label">Type</span><span>${f.type||'unknown'}</span></div>`;
+  const w=[];
+  if(+mb>512)w.push('Exceeds X/Twitter 512 MB limit');
+  if(+mb>200)w.push('Exceeds LinkedIn 200 MB limit');
+  if(!f.type.includes('mp4')&&!f.type.includes('video'))w.push('MP4 recommended');
+  w.forEach(x=>{h+=`<div class="vid-warn">⚠ ${x}</div>`;});
+  const v=document.createElement('video');v.preload='metadata';
+  v.onloadedmetadata=()=>{
+    const d=v.duration;if(d&&isFinite(d)){
+      const ds=d<60?d.toFixed(1)+'s':`${Math.floor(d/60)}m ${Math.floor(d%60)}s`;
+      let dh=`<div style="margin-top:.3rem"><span class="vid-info-label">Duration</span> ${ds}</div>`;
+      if(d>90)dh+=`<div class="vid-warn">⚠ ${ds} — exceeds Reels (90s) & Shorts (60s)</div>`;
+      else if(d>60)dh+=`<div class="vid-warn">⚠ ${ds} — exceeds Shorts 60s limit</div>`;
+      prev.querySelector('.vid-info').insertAdjacentHTML('beforeend',dh);
+    }URL.revokeObjectURL(v.src);
+  };v.src=URL.createObjectURL(f);
+  h+='</div>'; prev.innerHTML=h; prev.style.display='block';
+}
+
+// ── Submit ───────────────────────────────────
+document.getElementById('frm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.innerHTML='<span class="spin white"></span> Validating...';
+  try{
+    const fd=new FormData(), name=document.getElementById('fName').value.trim();
+    if(!name)throw new Error('Tool name required');
+    fd.append('tool_name',name);
+    const h=document.getElementById('fHandle').value.trim(); if(h)fd.append('handle',h);
+    const d=document.getElementById('fDesc').value.trim(); if(d)fd.append('description',d);
+    const w=document.getElementById('fWeb').value.trim(); if(w)fd.append('website',w);
+    const url=document.getElementById('fUrl').value.trim(), file=document.getElementById('fFile').files[0];
+    if(url)fd.append('video_url',url);else if(file)fd.append('video_file',file);else throw new Error('Video required');
+    const sv=document.getElementById('fSched').value; if(sv)fd.append('scheduled_at',sv+':00Z');
+
+    const r=await fetch(`${A}/api/tools`,{method:'POST',body:fd,headers:hdr()});
+    const data=await r.json(); if(!r.ok)throw new Error(data.detail||'Failed');
+
+    if(data.needs_confirmation){
+      const fd2=new FormData(); fd2.append('tool_name',name);
+      if(h)fd2.append('handle',h);if(d)fd2.append('description',d);if(w)fd2.append('website',w);
+      if(url)fd2.append('video_url',url);else if(file)fd2.append('video_file',file);
+      if(sv)fd2.append('scheduled_at',sv+':00Z');
+      _pfd=fd2; showWarn(data); btn.innerHTML='Awaiting...'; return;
     }
+    toast(`"${data.tool_name}" queued!`); confetti();
+    if(data.queue_estimate)setTimeout(()=>toast(data.queue_estimate.message,'warning'),600);
+    e.target.reset(); document.getElementById('fFileName').textContent=''; document.getElementById('vidPreview').style.display='none'; vidMode('url'); loadTools();
+  }catch(err){toast(err.message,'error');}
+  finally{if(!_pfd){btn.disabled=false;btn.textContent='Submit & Queue';}}
+});
 
-    (async () => {
-        const gateStatus = document.getElementById('gateStatus');
-        const gateBtn = document.getElementById('gateBtn');
-        const savedKey = getAuthKey();
-        gateStatus.innerHTML = '<span class="spinner sm"></span> Checking server...';
-        const online = await checkServer();
-        if (online && savedKey) { const authed = await checkAuth(savedKey); if (authed) { enterApp(); return; } }
-        if (online) {
-            gateStatus.innerHTML = '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;"></span> Server is online — enter your access key';
-        } else {
-            gateStatus.innerHTML = '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server is sleeping';
-        }
-        gateBtn.disabled = false;
-    })();
+// ── Warning modal ────────────────────────────
+function showWarn(d){
+  let h='';
+  if(d.video_info&&Object.keys(d.video_info).length){
+    const v=d.video_info, ds=v.duration_sec<60?v.duration_sec+'s':`${Math.floor(v.duration_sec/60)}m ${Math.floor(v.duration_sec%60)}s`;
+    h+=`<div class="vid-info"><strong>Video Details</strong><div class="vid-info-grid" style="margin-top:.3rem"><span class="vid-info-label">Duration</span><span>${ds}</span><span class="vid-info-label">Size</span><span>${v.size_mb} MB</span><span class="vid-info-label">Resolution</span><span>${v.width}x${v.height}</span><span class="vid-info-label">Codec</span><span>${v.codec}</span><span class="vid-info-label">Orientation</span><span>${v.is_vertical?'Vertical ✓':'Landscape'}</span></div></div>`;
+  }
+  if(d.warnings&&d.warnings.length){h+=`<ul class="warn-list">`;d.warnings.forEach(w=>{const s=w.severity||'warning',i=s==='error'?'🚨':s==='warning'?'⚠️':'ℹ️';h+=`<li class="warn-item w-${s}"><span>${i}</span><span>${esc(w.message)}</span></li>`;});h+=`</ul>`;}
+  if(d.duplicates&&d.duplicates.length){h+=`<div class="dup-box"><strong>Duplicate Content Detected</strong>`;d.duplicates.forEach(x=>{h+=`<div style="margin-top:.3rem;color:var(--text-dim);font-size:.78rem">"${esc(x.existing_name)}" (#${x.existing_id}, ${x.existing_status}) — ${x.reasons.join(', ')}</div>`;});h+=`</div>`;}
+  if(d.queue_estimate)h+=`<div class="queue-chip">${esc(d.queue_estimate.message)}</div>`;
+  h+=`<p style="color:var(--text-dim);font-size:.82rem;margin-top:.8rem">Still want to post? Click <strong>Post Anyway</strong> to proceed.</p>`;
+  document.getElementById('warnBody').innerHTML=h;
+  document.getElementById('warnModal').classList.add('show');
+}
+function closeWarn(){document.getElementById('warnModal').classList.remove('show');_pfd=null;const b=document.getElementById('submitBtn');b.disabled=false;b.textContent='Submit & Queue';}
+async function forceSubmit(){
+  if(!_pfd)return; const cb=document.getElementById('warnConfirm');cb.disabled=true;cb.innerHTML='<span class="spin white"></span>';
+  try{_pfd.append('force','true');const r=await fetch(`${A}/api/tools`,{method:'POST',body:_pfd,headers:hdr()});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Failed');
+    closeWarn();toast(`"${d.tool_name}" queued!`);confetti();document.getElementById('frm').reset();document.getElementById('fFileName').textContent='';document.getElementById('vidPreview').style.display='none';vidMode('url');loadTools();
+  }catch(e){toast(e.message,'error');}finally{cb.disabled=false;cb.textContent='Post Anyway';_pfd=null;}
+}
 
-    async function wakeServer() {
-        const gateStatus = document.getElementById('gateStatus');
-        const gateBtn = document.getElementById('gateBtn');
-        const key = document.getElementById('gatePassword').value.trim();
-        if (!key) { gateStatus.innerHTML = '<span style="color:var(--red);">Please enter your access key.</span>'; return; }
-        gateBtn.disabled = true;
-        gateBtn.innerHTML = '<span class="spinner"></span> Connecting...';
-        gateStatus.innerHTML = '<span class="spinner sm"></span> Waking server & verifying key...';
-        const start = Date.now();
-        while (Date.now() - start < 90000) {
-            const online = await checkServer();
-            if (online) {
-                const authed = await checkAuth(key);
-                if (authed) { sessionStorage.setItem('ep_auth_key', key); enterApp(); return; }
-                else { gateStatus.innerHTML = '<span style="color:var(--red);">Invalid access key. Try again.</span>'; gateBtn.disabled = false; gateBtn.innerHTML = 'Unlock &amp; Wake Up Server'; return; }
-            }
-            await new Promise(r => setTimeout(r, 5000));
-        }
-        gateStatus.innerHTML = '<span class="dot" style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;"></span> Server did not respond. Try again.';
-        gateBtn.disabled = false;
-        gateBtn.innerHTML = 'Unlock &amp; Wake Up Server';
-    }
+// ── Confetti ─────────────────────────────────
+function confetti(){
+  const colors=['#5046e5','#059669','#d97706','#dc2626','#2563eb','#7c3aed','#ec4899'];
+  for(let i=0;i<40;i++){
+    const p=document.createElement('div');p.className='confetti-piece';
+    p.style.cssText=`left:${Math.random()*100}vw;top:-10px;background:${colors[i%colors.length]};animation-duration:${1+Math.random()*1.5}s;animation-delay:${Math.random()*.3}s;width:${6+Math.random()*6}px;height:${6+Math.random()*6}px;border-radius:${Math.random()>.5?'50%':'2px'}`;
+    document.body.appendChild(p);setTimeout(()=>p.remove(),3000);
+  }
+}
 
-    document.getElementById('gatePassword').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); wakeServer(); } });
+// ── Progress ring SVG ────────────────────────
+function ring(done,total,size=36){
+  const r=14,c=2*Math.PI*r,pct=total?done/total:0,off=c*(1-pct);
+  const color=pct===1?'var(--green)':pct>=.5?'var(--accent)':pct>0?'var(--amber)':'var(--border)';
+  return `<svg class="progress-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 ${size/2} ${size/2})"/><text x="${size/2}" y="${size/2}" text-anchor="middle" dominant-baseline="central" font-size="10" font-weight="700" fill="${color}">${done}/${total}</text></svg>`;
+}
 
-    function enterApp() {
-        serverOnline = true;
-        document.getElementById('gateOverlay').classList.add('hidden');
-        document.getElementById('mainApp').style.display = 'block';
-        updateServerBar(true);
-        loadTools();
-    }
+// ── Load tools ───────────────────────────────
+async function loadTools(){
+  try{
+    const r=await fetch(`${A}/api/tools`,{headers:hdr()});const tools=await r.json();const box=document.getElementById('toolBox');
+    if(!tools.length){box.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text-dim)">No tools yet</div>';return;}
+    box.innerHTML='<div class="tool-list">'+tools.map(t=>{
+      const ps=['youtube','x','linkedin','instagram','facebook'];
+      const done=ps.filter(p=>t[p+'_status']==='SUCCESS').length;
+      const failed=ps.some(p=>t[p+'_status']==='FAILED');
+      return `<div class="tool-card">
+        ${ring(done,ps.length)}
+        <div class="tool-body">
+          <div class="tool-name">${esc(t.tool_name)}</div>
+          <div class="tool-meta"><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span> <span>${t.posted_at?new Date(t.posted_at).toLocaleDateString():new Date(t.created_at).toLocaleDateString()}</span></div>
+          <div class="tool-platforms">${ps.map(p=>{const s=t[p+'_status'];return `<span class="plat ${s==='SUCCESS'?'plat-ok':s==='FAILED'?'plat-fail':s==='SKIPPED'?'plat-skip':'plat-wait'}">${p.slice(0,2)}</span>`;}).join('')}</div>
+          ${t.scheduled_at&&t.status==='READY'?`<div class="tool-sched">⏰ ${new Date(t.scheduled_at).toLocaleString()}</div>`:''}
+          ${t.error_log?`<div class="tool-error">⚠ ${esc(t.error_log)}</div>`:''}
+        </div>
+        <div class="tool-actions">
+          ${t.status==='FAILED'||failed?`<button class="btn btn-ghost btn-xs" onclick="retryTool(${t.id})" title="Retry">↻</button>`:``}
+          <button class="btn btn-red btn-xs" onclick="delTool(${t.id},'${esc(t.tool_name)}')" title="Delete">✕</button>
+        </div>
+      </div>`;
+    }).join('')+'</div>';
+  }catch(e){console.error(e);}
+}
 
-    function updateServerBar(online) {
-        const bar = document.getElementById('serverBar');
-        const txt = document.getElementById('serverText');
-        if (online) { bar.className = 'server-bar online'; txt.textContent = 'Server Online'; }
-        else { bar.className = 'server-bar sleeping'; txt.textContent = 'Server Sleeping — requests may fail'; }
-    }
+async function retryTool(id){try{const r=await fetch(`${A}/api/tools/${id}/retry`,{method:'POST',headers:hdr()});const d=await r.json();if(!r.ok)throw new Error(d.detail);toast(`Retrying ${d.platforms_reset} platform(s)...`);loadTools();}catch(e){toast(e.message,'error');}}
+async function delTool(id,n){if(!confirm(`Delete "${n}"?`))return;try{const r=await fetch(`${A}/api/tools/${id}`,{method:'DELETE',headers:hdr()});if(!r.ok)throw new Error('Failed');toast(`"${n}" deleted`);loadTools();}catch(e){toast(e.message,'error');}}
 
-    setInterval(async () => { if (!serverOnline) return; const ok = await checkServer(); updateServerBar(ok); }, 60000);
+// ── Heatmap ──────────────────────────────────
+async function loadHeatmap(){
+  const box=document.getElementById('heatmapBox');
+  box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div>';
+  try{
+    const r=await fetch(`${A}/api/analytics/heatmap`,{headers:hdr()});const days=await r.json();
+    if(!r.ok)throw new Error('Failed');
+    // Group into weeks (columns), 7 rows each
+    const weeks=[];let week=[];
+    // Align start to Monday
+    const startDate=new Date(days[0].date);
+    const pad=startDate.getDay()===0?6:startDate.getDay()-1;
+    for(let i=0;i<pad;i++)week.push(null);
+    days.forEach(d=>{week.push(d);if(week.length===7){weeks.push(week);week=[];}});
+    if(week.length)weeks.push(week);
 
-    // ── Tabs ──────────────────────────────────────────────────
-    function switchTab(tabId, btn) {
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        btn.classList.add('active');
-        if (tabId === 'analyticsTab') loadAnalytics();
-        if (tabId === 'healthTab') loadTokenHealth();
-        if (tabId === 'limitsTab') loadPlatformLimits();
-        if (tabId === 'scheduleTab') loadScheduleSuggestions();
-    }
+    const maxC=Math.max(...days.map(d=>d.count),1);
+    function lvl(c){if(c===0)return 0;if(c<=maxC*.25)return 1;if(c<=maxC*.5)return 2;if(c<=maxC*.75)return 3;return 4;}
 
-    // ── Video toggle ──────────────────────────────────────────
-    function toggleVideo(mode) {
-        document.getElementById('btnUrl').classList.toggle('active', mode === 'url');
-        document.getElementById('btnUpload').classList.toggle('active', mode === 'upload');
-        document.getElementById('urlGroup').style.display = mode === 'url' ? 'block' : 'none';
-        document.getElementById('uploadGroup').style.display = mode === 'upload' ? 'block' : 'none';
-        if (mode === 'url') { document.getElementById('video_file').value = ''; document.getElementById('clientVideoInfo').style.display = 'none'; }
-        if (mode === 'upload') document.getElementById('video_url').value = '';
-    }
-
-    // ── Drop zone ─────────────────────────────────────────────
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('video_file');
-    const fileNameEl = document.getElementById('fileName');
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; onFileSelected(e.dataTransfer.files[0]); } });
-    fileInput.addEventListener('change', () => { if (fileInput.files.length) onFileSelected(fileInput.files[0]); });
-
-    function onFileSelected(file) {
-        fileNameEl.textContent = file.name;
-        const infoEl = document.getElementById('clientVideoInfo');
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        let html = `<div class="video-info"><div class="video-info-grid">`;
-        html += `<span class="video-info-label">File:</span><span class="video-info-value">${esc(file.name)}</span>`;
-        html += `<span class="video-info-label">Size:</span><span class="video-info-value">${sizeMB} MB</span>`;
-        html += `<span class="video-info-label">Type:</span><span class="video-info-value">${file.type || 'unknown'}</span>`;
-        html += `</div>`;
-
-        // Client-side size warnings
-        const warnings = [];
-        if (parseFloat(sizeMB) > 512) warnings.push(`File is ${sizeMB}MB — may exceed X/Twitter's 512MB limit`);
-        if (parseFloat(sizeMB) > 200) warnings.push(`File is ${sizeMB}MB — may exceed LinkedIn's 200MB limit`);
-        if (!file.type.includes('mp4') && !file.type.includes('video')) warnings.push(`File type "${file.type}" — MP4 is recommended`);
-
-        if (warnings.length) {
-            html += `<div style="margin-top:.5rem;">`;
-            warnings.forEach(w => { html += `<div style="color:var(--amber);font-size:.78rem;">&#x26A0; ${w}</div>`; });
-            html += `</div>`;
-        }
-
-        // HTML5 video element for duration
-        const videoEl = document.createElement('video');
-        videoEl.preload = 'metadata';
-        videoEl.onloadedmetadata = () => {
-            const dur = videoEl.duration;
-            if (dur && isFinite(dur)) {
-                const durStr = dur < 60 ? `${dur.toFixed(1)}s` : `${Math.floor(dur/60)}m ${Math.floor(dur%60)}s`;
-                const durLine = document.createElement('div');
-                durLine.style.cssText = 'margin-top:.3rem;';
-                let durHtml = `<span class="video-info-label">Duration:</span> <span class="video-info-value">${durStr}</span>`;
-                if (dur > 90) durHtml += `<div style="color:var(--amber);font-size:.78rem;margin-top:.2rem;">&#x26A0; Video is ${durStr} — exceeds Reels limits (90s) and Shorts limit (60s)</div>`;
-                else if (dur > 60) durHtml += `<div style="color:var(--amber);font-size:.78rem;margin-top:.2rem;">&#x26A0; Video is ${durStr} — exceeds YouTube Shorts 60s limit</div>`;
-                durLine.innerHTML = durHtml;
-                infoEl.querySelector('.video-info').appendChild(durLine);
-            }
-            URL.revokeObjectURL(videoEl.src);
-        };
-        videoEl.src = URL.createObjectURL(file);
-
-        html += `</div>`;
-        infoEl.innerHTML = html;
-        infoEl.style.display = 'block';
-    }
-
-    // ── Toast ─────────────────────────────────────────────────
-    function showToast(msg, type = 'success') {
-        const toast = document.getElementById('toast');
-        toast.textContent = msg;
-        toast.className = `toast ${type} show`;
-        setTimeout(() => toast.classList.remove('show'), 4000);
-    }
-
-    // ── Warning Modal ─────────────────────────────────────────
-    function showWarningModal(data) {
-        const modal = document.getElementById('warningModal');
-        const body = document.getElementById('modalBody');
-        let html = '';
-
-        // Video info
-        if (data.video_info && Object.keys(data.video_info).length) {
-            const vi = data.video_info;
-            const durStr = vi.duration_sec < 60 ? `${vi.duration_sec}s` : `${Math.floor(vi.duration_sec/60)}m ${Math.floor(vi.duration_sec%60)}s`;
-            html += `<div class="video-info"><strong style="font-size:.82rem;">Video Details</strong><div class="video-info-grid" style="margin-top:.4rem;">`;
-            html += `<span class="video-info-label">Duration</span><span class="video-info-value">${durStr}</span>`;
-            html += `<span class="video-info-label">Size</span><span class="video-info-value">${vi.size_mb} MB</span>`;
-            html += `<span class="video-info-label">Resolution</span><span class="video-info-value">${vi.width}x${vi.height}</span>`;
-            html += `<span class="video-info-label">Codec</span><span class="video-info-value">${vi.codec}</span>`;
-            html += `<span class="video-info-label">Orientation</span><span class="video-info-value">${vi.is_vertical ? 'Vertical (9:16) &#x2705;' : 'Landscape — not ideal'}</span>`;
-            html += `</div></div>`;
-        }
-
-        // Warnings
-        if (data.warnings && data.warnings.length) {
-            html += `<ul class="warning-list">`;
-            data.warnings.forEach(w => {
-                const sev = w.severity || 'warning';
-                const icon = sev === 'warning' ? '&#x26A0;&#xFE0F;' : sev === 'error' ? '&#x1F6A8;' : '&#x2139;&#xFE0F;';
-                html += `<li class="warning-item severity-${sev}"><span class="warning-icon">${icon}</span><span class="warning-text">${esc(w.message)}</span></li>`;
-            });
-            html += `</ul>`;
-        }
-
-        // Duplicates
-        if (data.duplicates && data.duplicates.length) {
-            html += `<div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:.8rem;margin-bottom:1rem;">`;
-            html += `<strong style="color:var(--red);font-size:.85rem;">&#x1F504; Duplicate Content Detected</strong>`;
-            data.duplicates.forEach(d => {
-                html += `<div style="margin-top:.4rem;font-size:.8rem;color:var(--text-dim);">`;
-                html += `"${esc(d.existing_name)}" (#${d.existing_id}, ${d.existing_status}) — ${d.reasons.join(', ')}`;
-                html += `</div>`;
-            });
-            html += `</div>`;
-        }
-
-        // Queue estimate
-        if (data.queue_estimate) {
-            html += `<div class="queue-badge">&#x1F4CB; ${esc(data.queue_estimate.message)}</div>`;
-        }
-
-        html += `<p style="color:var(--text-dim);font-size:.85rem;margin-top:1rem;">Still want to upload? Click <strong>"Post Anyway"</strong> to proceed.</p>`;
-
-        body.innerHTML = html;
-        modal.classList.add('show');
-    }
-
-    function closeModal() {
-        document.getElementById('warningModal').classList.remove('show');
-        _pendingFormData = null;
-        const btn = document.getElementById('submitBtn');
-        btn.disabled = false;
-        btn.innerHTML = 'Submit &amp; Queue for Posting';
-    }
-
-    async function confirmSubmit() {
-        if (!_pendingFormData) return;
-        const confirmBtn = document.getElementById('modalConfirmBtn');
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<span class="spinner sm"></span> Posting...';
-
-        try {
-            _pendingFormData.append('force', 'true');
-            const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: _pendingFormData, headers: authHeaders() });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Submission failed');
-            closeModal();
-            showToast(`"${data.tool_name}" queued for posting!`);
-            if (data.queue_estimate) setTimeout(() => showToast(data.queue_estimate.message, 'warning'), 500);
-            document.getElementById('toolForm').reset();
-            fileNameEl.textContent = '';
-            document.getElementById('clientVideoInfo').style.display = 'none';
-            toggleVideo('url');
-            loadTools();
-        } catch (err) {
-            showToast(err.message, 'error');
-        } finally {
-            confirmBtn.disabled = false;
-            confirmBtn.innerHTML = 'Post Anyway';
-            _pendingFormData = null;
-        }
-    }
-
-    // ── Submit form (with smart validation) ───────────────────
-    document.getElementById('toolForm').addEventListener('submit', async e => {
-        e.preventDefault();
-        const btn = document.getElementById('submitBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Validating...';
-        try {
-            const fd = new FormData();
-            const toolName = document.getElementById('tool_name').value.trim();
-            if (!toolName) throw new Error('Tool name is required.');
-            fd.append('tool_name', toolName);
-            const handle = document.getElementById('handle').value.trim();
-            if (handle) fd.append('handle', handle);
-            const desc = document.getElementById('description').value.trim();
-            if (desc) fd.append('description', desc);
-            const website = document.getElementById('website').value.trim();
-            if (website) fd.append('website', website);
-            const videoUrl = document.getElementById('video_url').value.trim();
-            const videoFile = document.getElementById('video_file').files[0];
-            if (videoUrl) fd.append('video_url', videoUrl);
-            else if (videoFile) fd.append('video_file', videoFile);
-            else throw new Error('Provide a video URL or upload a video file.');
-            const schedVal = document.getElementById('scheduled_at').value;
-            if (schedVal) fd.append('scheduled_at', schedVal + ':00Z');
-
-            const res = await fetch(`${API_BASE}/api/tools`, { method: 'POST', body: fd, headers: authHeaders() });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Submission failed');
-
-            if (data.needs_confirmation) {
-                // Build fresh FormData for re-submit
-                const fd2 = new FormData();
-                fd2.append('tool_name', toolName);
-                if (handle) fd2.append('handle', handle);
-                if (desc) fd2.append('description', desc);
-                if (website) fd2.append('website', website);
-                if (videoUrl) fd2.append('video_url', videoUrl);
-                else if (videoFile) fd2.append('video_file', videoFile);
-                if (schedVal) fd2.append('scheduled_at', schedVal + ':00Z');
-                _pendingFormData = fd2;
-                showWarningModal(data);
-                btn.innerHTML = 'Awaiting confirmation...';
-                return;
-            }
-
-            showToast(`"${data.tool_name}" queued for posting!`);
-            if (data.queue_estimate) setTimeout(() => showToast(data.queue_estimate.message, 'warning'), 500);
-            e.target.reset();
-            fileNameEl.textContent = '';
-            document.getElementById('clientVideoInfo').style.display = 'none';
-            toggleVideo('url');
-            loadTools();
-        } catch (err) { showToast(err.message, 'error'); }
-        finally {
-            if (!_pendingFormData) { btn.disabled = false; btn.innerHTML = 'Submit &amp; Queue for Posting'; }
-        }
+    let html='<div class="heatmap-wrap"><div class="heatmap-title">Posting Activity (last 12 months)</div>';
+    html+='<div class="heatmap">';
+    weeks.forEach(w=>{
+      html+='<div class="heatmap-col">';
+      for(let i=0;i<7;i++){
+        const d=w[i];
+        if(!d){html+='<div class="heatmap-cell" style="visibility:hidden"></div>';continue;}
+        const tt=d.count?`${d.date}: ${d.count} post(s)${d.tools.length?' — '+d.tools.join(', '):''}`:d.date+': no posts';
+        html+=`<div class="heatmap-cell" data-lvl="${lvl(d.count)}" title="${esc(tt)}"></div>`;
+      }
+      html+='</div>';
     });
+    html+='</div>';
+    html+='<div class="heatmap-legend"><span>Less</span><div class="cell" style="background:var(--surface-2)"></div><div class="cell" style="background:#c7d2fe"></div><div class="cell" style="background:#818cf8"></div><div class="cell" style="background:#6366f1"></div><div class="cell" style="background:#4f46e5"></div><span>More</span></div>';
+    html+='</div>';
+    box.innerHTML=html;
+  }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center;padding:1rem">Failed to load heatmap</div>';}
+}
 
-    // ── Load tools ────────────────────────────────────────────
-    async function loadTools() {
-        try {
-            const res = await fetch(`${API_BASE}/api/tools`, { headers: authHeaders() });
-            const tools = await res.json();
-            const container = document.getElementById('toolsContainer');
-            if (!tools.length) { container.innerHTML = '<div class="empty-state"><div class="icon">&#x1F4E6;</div><p>No tools submitted yet</p></div>'; return; }
-            container.innerHTML = `
-                <table class="tool-table">
-                    <thead><tr><th>Tool</th><th>Status</th><th>Platforms</th><th>Date</th><th>Actions</th></tr></thead>
-                    <tbody>
-                        ${tools.map(t => `
-                            <tr>
-                                <td>
-                                    <strong>${esc(t.tool_name)}</strong>
-                                    ${t.website ? `<br><a href="${esc(t.website)}" target="_blank" style="color:var(--accent);font-size:.75rem;text-decoration:none;">${esc(t.website)}</a>` : ''}
-                                </td>
-                                <td><span class="badge badge-${t.status.toLowerCase()}">${t.status}</span></td>
-                                <td>
-                                    <div class="platform-detail">
-                                        <div class="p-row"><span class="p-label">YT</span> ${platformBadge(t.youtube_status)}</div>
-                                        <div class="p-row"><span class="p-label">X</span> ${platformBadge(t.x_status)}</div>
-                                        <div class="p-row"><span class="p-label">LI</span> ${platformBadge(t.linkedin_status)}</div>
-                                        <div class="p-row"><span class="p-label">IG</span> ${platformBadge(t.instagram_status)}</div>
-                                        <div class="p-row"><span class="p-label">FB</span> ${platformBadge(t.facebook_status)}</div>
-                                    </div>
-                                    ${t.error_log ? `<div class="error-log">&#x26A0; ${esc(t.error_log)}</div>` : ''}
-                                </td>
-                                <td style="font-size:.78rem;color:var(--text-dim);white-space:nowrap;">
-                                    ${t.scheduled_at && t.status === 'READY' ? `<div class="schedule-info">&#128337; ${new Date(t.scheduled_at).toLocaleString()}</div>` : ''}
-                                    ${t.posted_at ? new Date(t.posted_at).toLocaleDateString() : new Date(t.created_at).toLocaleDateString()}
-                                </td>
-                                <td style="white-space:nowrap;">
-                                    ${t.status === 'FAILED' || hasFailedPlatform(t) ? `<button class="btn-sm btn-retry" onclick="retryTool(${t.id})">&#x21BB; Retry</button> ` : ''}
-                                    <button class="btn-sm btn-delete" onclick="deleteTool(${t.id},'${esc(t.tool_name)}')">&#x2715;</button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>`;
-        } catch (err) { console.error('Failed to load tools:', err); }
+// ── Recent posts ─────────────────────────────
+async function loadRecent(){
+  const box=document.getElementById('recentBox');
+  try{
+    const r=await fetch(`${A}/api/analytics`,{headers:hdr()});const d=await r.json();
+    if(!d.recent||!d.recent.length){box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)">No posts yet</div>';return;}
+    box.innerHTML='<div class="tool-list">'+d.recent.map(t=>{
+      const ps=['youtube','x','linkedin','instagram','facebook'];
+      const done=ps.filter(p=>t[p+'_status']==='SUCCESS').length;
+      return `<div class="tool-card"><div style="min-width:32px;text-align:center;font-size:.85rem;font-weight:700;color:var(--green)">${done}/5</div><div class="tool-body"><div class="tool-name">${esc(t.tool_name)}</div><div class="tool-meta"><span>${t.posted_at?new Date(t.posted_at).toLocaleDateString():'-'}</span></div><div class="tool-platforms">${ps.map(p=>{const s=t[p+'_status'];return `<span class="plat ${s==='SUCCESS'?'plat-ok':s==='FAILED'?'plat-fail':s==='SKIPPED'?'plat-skip':'plat-wait'}">${p.slice(0,2)}</span>`;}).join('')}</div></div></div>`;
+    }).join('')+'</div>';
+  }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center">Failed</div>';}
+}
+
+// ── Analytics ────────────────────────────────
+async function loadAnalytics(){
+  const box=document.getElementById('analyticsBox');
+  box.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text-dim)"><span class="spin"></span></div>';
+  try{
+    const r=await fetch(`${A}/api/analytics`,{headers:hdr()});const d=await r.json();
+    let h=`<div class="stats"><div class="stat"><div class="stat-val">${d.total}</div><div class="stat-label">Total</div></div><div class="stat"><div class="stat-val">${d.posted}</div><div class="stat-label">Posted</div></div><div class="stat"><div class="stat-val">${d.failed}</div><div class="stat-label">Failed</div></div><div class="stat"><div class="stat-val">${d.ready}</div><div class="stat-label">Queue</div></div><div class="stat"><div class="stat-val">${d.success_rate}%</div><div class="stat-label">Success</div></div></div>`;
+    h+='<div style="font-size:.88rem;font-weight:700;margin-bottom:.8rem">Platform Performance</div>';
+    Object.entries(d.platforms).forEach(([n,s])=>{
+      const c=s.success_rate>70?'var(--green)':s.success_rate>30?'var(--amber)':'var(--red)';
+      h+=`<div class="platform-row"><span class="name">${n[0].toUpperCase()+n.slice(1)}</span><div class="track"><div class="track-fill" style="width:${s.success_rate}%"></div></div><span class="rate" style="color:${c}">${s.success_rate}%</span><span style="font-size:.7rem;color:var(--text-dim);min-width:60px;text-align:right">${s.success}✓ ${s.failed}✗</span></div>`;
+    });
+    box.innerHTML=h;
+  }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center">Failed</div>';}
+}
+
+async function exportCSV(){try{const r=await fetch(`${A}/api/analytics/export`,{headers:hdr()});if(!r.ok)throw new Error('Failed');const b=await r.blob(),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=`export_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('CSV exported!');}catch(e){toast(e.message,'error');}}
+
+// ── Health ───────────────────────────────────
+async function loadHealth(){
+  const box=document.getElementById('healthBox');
+  box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div>';
+  try{
+    const r=await fetch(`${A}/api/health/tokens`,{headers:hdr()});const d=await r.json();
+    const cards=[];const m=d.meta||{};
+    if(m.configured){
+      const dl=m.days_left!=null?m.days_left:(m.valid?9999:-1);
+      const cls=m.valid?(dl>14?'ok':dl>3?'warn':'err'):'err';
+      let det=m.valid?'✓ Valid':'✗ Invalid';
+      if(m.expires_at)det+=` — ${m.days_left} days left (${new Date(m.expires_at).toLocaleDateString()})`;
+      else if(m.valid)det+=' — No expiry';
+      if(m.scopes)det+=`<br>Scopes: ${m.scopes.join(', ')}`;
+      if(m.error)det+=`<br><span style="color:var(--red)">${m.error}</span>`;
+      cards.push(`<div class="health-card ${cls}"><h4>Meta (IG + FB)</h4><div class="detail">${det}</div></div>`);
+    }else cards.push(`<div class="health-card"><h4>Meta (IG + FB)</h4><div class="detail">Not configured</div></div>`);
+
+    ['linkedin','youtube','x','discord','telegram','gemini'].forEach(n=>{
+      const p=d[n]||{};const label=n==='x'?'X (Twitter)':n==='gemini'?'Gemini AI':n[0].toUpperCase()+n.slice(1);
+      cards.push(`<div class="health-card ${p.configured?'ok':''}"><h4>${label}</h4><div class="detail">${p.configured?'✓ Configured':'Not configured'}</div></div>`);
+    });
+    box.innerHTML=`<div class="health-grid">${cards.join('')}</div>`;
+  }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center">Failed</div>';}
+}
+
+// ── Platform Limits ──────────────────────────
+async function loadLimits(){
+  try{
+    const r=await fetch(`${A}/api/platform-limits`,{headers:hdr()});const d=await r.json();
+    let h='<div class="limits-inline">';
+    for(const[k,l]of Object.entries(d)){
+      const dur=l.max_duration_sec<60?l.max_duration_sec+'s':`${Math.floor(l.max_duration_sec/60)}m`;
+      const sz=l.max_size_mb>=1024?(l.max_size_mb/1024|0)+' GB':l.max_size_mb+' MB';
+      h+=`<div class="limit-chip"><strong>${l.label}</strong><span>Max ${dur} · ${sz} · ${l.recommended_aspect}</span></div>`;
     }
+    h+='</div>';document.getElementById('limitsBox').innerHTML=h;
+  }catch(e){}
+}
 
-    function hasFailedPlatform(t) {
-        return [t.linkedin_status,t.instagram_status,t.facebook_status,t.youtube_status,t.x_status].includes('FAILED');
-    }
+// ── Schedule suggestions ─────────────────────
+async function loadSched(){
+  const box=document.getElementById('schedBox');
+  box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div>';
+  try{
+    const r=await fetch(`${A}/api/schedule/suggest`,{headers:hdr()});const d=await r.json();
+    let h='';
+    if(d.queue_size>0)h+=`<div class="queue-chip" style="margin-bottom:.5rem">${d.queue_size} in queue</div>`;
+    h+='<ul class="sched-list">';
+    d.suggestions.forEach(s=>{
+      const dt=new Date(s.suggested_time);
+      const ts=dt.toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      h+=`<li class="sched-item ${s.is_prime_time?'prime':''}" onclick="useSched('${s.suggested_time}')"><span class="sched-time">${ts}</span><span class="sched-plat">${s.platform}</span><span class="sched-reason">${esc(s.reason)}</span>${s.is_prime_time?'<span style="color:var(--green);font-size:.68rem;font-weight:700">PRIME</span>':''}</li>`;
+    });
+    h+='</ul><div style="font-size:.7rem;color:var(--text-dim);margin-top:.4rem">Click to auto-fill schedule</div>';
+    box.innerHTML=h;
+  }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center;padding:.5rem">Failed</div>';}
+}
+function useSched(iso){
+  const dt=new Date(iso),loc=new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('fSched').value=loc;
+  toast('Schedule set — submit your tool to use it','warning');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 
-    function platformBadge(status) {
-        const cls = status === 'SUCCESS' ? 'success' : status === 'FAILED' ? 'failed' : status === 'SKIPPED' ? 'skipped' : 'pending';
-        return `<span class="badge badge-${cls}">${status}</span>`;
-    }
+// ── Bulk upload ──────────────────────────────
+async function bulkUp(){
+  const btn=document.getElementById('bulkBtn'),res=document.getElementById('bulkRes'),raw=document.getElementById('bulkJson').value.trim();
+  if(!raw){toast('Paste JSON first','error');return;}
+  let tools;try{tools=JSON.parse(raw);}catch{toast('Invalid JSON','error');return;}
+  if(!Array.isArray(tools)){toast('Must be an array','error');return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin white"></span> Uploading...';
+  try{
+    const r=await fetch(`${A}/api/tools/bulk`,{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(tools)});
+    const d=await r.json();if(!r.ok)throw new Error(d.detail);
+    let h=`<span style="color:var(--green);font-weight:700">✓ ${d.total} tool(s) created</span>`;
+    if(d.errors&&d.errors.length){h+=`<br><span style="color:var(--red)">${d.errors.length} error(s):</span><ul style="padding-left:1rem;margin-top:.2rem">`;d.errors.forEach(e=>{h+=`<li style="color:var(--red);font-size:.76rem">Row ${e.index}: ${e.error}</li>`;});h+='</ul>';}
+    res.innerHTML=h;toast(`${d.total} tool(s) uploaded!`);confetti();loadTools();
+  }catch(e){toast(e.message,'error');}
+  finally{btn.disabled=false;btn.textContent='Upload All';}
+}
 
-    function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    // ── Retry tool ────────────────────────────────────────────
-    async function retryTool(id) {
-        try {
-            const res = await fetch(`${API_BASE}/api/tools/${id}/retry`, { method: 'POST', headers: authHeaders() });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Retry failed');
-            showToast(`Retrying ${data.platforms_reset} failed platform(s)...`);
-            loadTools();
-        } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    // ── Delete tool ───────────────────────────────────────────
-    async function deleteTool(id, name) {
-        if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-        try {
-            const res = await fetch(`${API_BASE}/api/tools/${id}`, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Delete failed'); }
-            showToast(`"${name}" deleted.`);
-            loadTools();
-        } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    // ── Bulk upload ───────────────────────────────────────────
-    async function bulkUpload() {
-        const btn = document.getElementById('bulkBtn');
-        const resultDiv = document.getElementById('bulkResult');
-        const raw = document.getElementById('bulkJson').value.trim();
-        if (!raw) { showToast('Paste your JSON array first.', 'error'); return; }
-        let tools;
-        try { tools = JSON.parse(raw); } catch { showToast('Invalid JSON. Check your syntax.', 'error'); return; }
-        if (!Array.isArray(tools)) { showToast('JSON must be an array of objects.', 'error'); return; }
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Uploading...';
-        try {
-            const res = await fetch(`${API_BASE}/api/tools/bulk`, {
-                method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(tools)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Bulk upload failed');
-            let html = `<span style="color:var(--green);font-weight:700;">&#x2714; ${data.total} tool(s) created successfully.</span>`;
-            if (data.errors && data.errors.length) {
-                html += `<br><span style="color:var(--red);">${data.errors.length} error(s):</span><ul style="margin-top:.3rem;padding-left:1rem;">`;
-                data.errors.forEach(e => { html += `<li style="color:var(--red);font-size:.78rem;">Row ${e.index}: ${e.error}</li>`; });
-                html += '</ul>';
-            }
-            resultDiv.innerHTML = html;
-            showToast(`${data.total} tool(s) uploaded!`);
-            loadTools();
-        } catch (err) { showToast(err.message, 'error'); }
-        finally { btn.disabled = false; btn.innerHTML = 'Upload All Tools'; }
-    }
-
-    // ── Analytics ─────────────────────────────────────────────
-    async function loadAnalytics() {
-        const container = document.getElementById('analyticsContent');
-        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Loading analytics...</div>';
-        try {
-            const res = await fetch(`${API_BASE}/api/analytics`, { headers: authHeaders() });
-            const d = await res.json();
-            if (!res.ok) throw new Error('Failed to load analytics');
-            container.innerHTML = `
-                <div class="stats-grid">
-                    <div class="stat-card"><div class="stat-value">${d.total}</div><div class="stat-label">Total Tools</div></div>
-                    <div class="stat-card"><div class="stat-value">${d.posted}</div><div class="stat-label">Posted</div></div>
-                    <div class="stat-card"><div class="stat-value">${d.failed}</div><div class="stat-label">Failed</div></div>
-                    <div class="stat-card"><div class="stat-value">${d.ready}</div><div class="stat-label">In Queue</div></div>
-                    <div class="stat-card"><div class="stat-value">${d.success_rate}%</div><div class="stat-label">Success Rate</div></div>
-                </div>
-                <h3 style="font-size:.95rem;font-weight:700;margin-bottom:1rem;">Platform Performance</h3>
-                ${Object.entries(d.platforms).map(([name, s]) => `
-                    <div class="platform-bar">
-                        <span class="p-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
-                        <div class="progress-track"><div class="progress-fill" style="width:${s.success_rate}%"></div></div>
-                        <span class="p-rate" style="color:${s.success_rate > 70 ? 'var(--green)' : s.success_rate > 30 ? 'var(--amber)' : 'var(--red)'}">${s.success_rate}%</span>
-                        <span style="font-size:.72rem;color:var(--text-dim);">${s.success}&#x2714; ${s.failed}&#x2718; ${s.skipped}&#x23ED;</span>
-                    </div>
-                `).join('')}
-                ${d.recent.length ? `
-                    <h3 style="font-size:.95rem;font-weight:700;margin:1.5rem 0 1rem;">Recent Posts</h3>
-                    <table class="tool-table">
-                        <thead><tr><th>Tool</th><th>Posted</th><th>Platforms</th></tr></thead>
-                        <tbody>${d.recent.map(t => `
-                            <tr>
-                                <td><strong>${esc(t.tool_name)}</strong></td>
-                                <td style="font-size:.78rem;color:var(--text-dim);">${t.posted_at ? new Date(t.posted_at).toLocaleDateString() : '-'}</td>
-                                <td style="font-size:.75rem;">
-                                    ${['linkedin','instagram','facebook','youtube','x'].map(p => {
-                                        const st = t[p+'_status'];
-                                        return st === 'SUCCESS' ? `<span style="color:var(--green);">${p.slice(0,2).toUpperCase()}&#x2714;</span>` :
-                                               st === 'FAILED' ? `<span style="color:var(--red);">${p.slice(0,2).toUpperCase()}&#x2718;</span>` : '';
-                                    }).join(' ')}
-                                </td>
-                            </tr>
-                        `).join('')}</tbody>
-                    </table>
-                ` : ''}
-            `;
-        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load analytics.</div>`; }
-    }
-
-    // ── CSV Export ─────────────────────────────────────────────
-    async function exportCSV() {
-        try {
-            const res = await fetch(`${API_BASE}/api/analytics/export`, { headers: authHeaders() });
-            if (!res.ok) throw new Error('Export failed');
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `execution_posting_export_${new Date().toISOString().slice(0,10)}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('CSV exported successfully!');
-        } catch (err) { showToast(err.message, 'error'); }
-    }
-
-    // ── Token Health ──────────────────────────────────────────
-    async function loadTokenHealth() {
-        const container = document.getElementById('healthContent');
-        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Checking tokens...</div>';
-        try {
-            const res = await fetch(`${API_BASE}/api/health/tokens`, { headers: authHeaders() });
-            const d = await res.json();
-            if (!res.ok) throw new Error('Failed to load token health');
-            const cards = [];
-            const meta = d.meta || {};
-            if (meta.configured) {
-                const daysLeft = meta.days_left != null ? meta.days_left : (meta.valid ? 9999 : -1);
-                const color = meta.valid ? (daysLeft > 14 ? 'var(--green)' : daysLeft > 3 ? 'var(--amber)' : 'var(--red)') : 'var(--red)';
-                cards.push(`<div class="token-card" style="border-left:3px solid ${color}">
-                    <h3><span style="color:${color};">&#x25CF;</span> Meta (IG + FB)</h3>
-                    <div class="token-status" style="color:${color}">${meta.valid ? '&#x2714; Valid' : '&#x2718; Invalid'}</div>
-                    ${meta.expires_at ? `<div class="token-detail">Expires in <strong style="color:${color};">${meta.days_left} days</strong> (${new Date(meta.expires_at).toLocaleDateString()})</div>` : meta.valid ? '<div class="token-detail" style="color:var(--green);">No expiry — long-lived token</div>' : ''}
-                    ${meta.scopes ? `<div class="token-detail" style="margin-top:.3rem;">Scopes: ${meta.scopes.join(', ')}</div>` : ''}
-                    ${meta.error ? `<div class="token-detail" style="color:var(--red);">${meta.error}</div>` : ''}
-                </div>`);
-            } else { cards.push(`<div class="token-card" style="border-left:3px solid var(--text-dim)"><h3>&#x25CB; Meta (IG + FB)</h3><div class="token-status" style="color:var(--text-dim)">Not configured</div></div>`); }
-
-            ['linkedin','youtube','x','discord','telegram','gemini'].forEach(name => {
-                const p = d[name] || {};
-                const label = name === 'x' ? 'X (Twitter)' : name === 'gemini' ? 'Gemini AI' : name.charAt(0).toUpperCase()+name.slice(1);
-                const color = p.configured ? 'var(--green)' : 'var(--text-dim)';
-                cards.push(`<div class="token-card" style="border-left:3px solid ${color}">
-                    <h3><span style="color:${color};">${p.configured ? '&#x25CF;' : '&#x25CB;'}</span> ${label}</h3>
-                    <div class="token-status" style="color:${color}">${p.configured ? '&#x2714; Configured' : 'Not configured'}</div>
-                </div>`);
-            });
-
-            container.innerHTML = `<div class="token-grid">${cards.join('')}</div>`;
-        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load token health.</div>`; }
-    }
-
-    // ── Platform Limits ───────────────────────────────────────
-    async function loadPlatformLimits() {
-        const container = document.getElementById('limitsContent');
-        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Loading limits...</div>';
-        try {
-            const res = await fetch(`${API_BASE}/api/platform-limits`, { headers: authHeaders() });
-            const d = await res.json();
-            if (!res.ok) throw new Error('Failed');
-            let html = '<div class="limits-grid">';
-            for (const [key, lim] of Object.entries(d)) {
-                const maxDur = lim.max_duration_sec < 60 ? `${lim.max_duration_sec}s` : `${Math.floor(lim.max_duration_sec/60)}m${lim.max_duration_sec%60 ? ` ${lim.max_duration_sec%60}s` : ''}`;
-                const sizeLim = lim.max_size_mb >= 1024 ? `${(lim.max_size_mb/1024).toFixed(0)} GB` : `${lim.max_size_mb} MB`;
-                html += `<div class="limit-card">
-                    <h4>${lim.label}</h4>
-                    <div class="limit-row"><span>Max Duration</span><span class="limit-value">${maxDur}</span></div>
-                    <div class="limit-row"><span>Max Size</span><span class="limit-value">${sizeLim}</span></div>
-                    <div class="limit-row"><span>Min Duration</span><span class="limit-value">${lim.min_duration_sec}s</span></div>
-                    <div class="limit-row"><span>Best Aspect</span><span class="limit-value">${lim.recommended_aspect}</span></div>
-                </div>`;
-            }
-            html += '</div>';
-            container.innerHTML = html;
-        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load limits.</div>`; }
-    }
-
-    // ── Smart Scheduling ──────────────────────────────────────
-    async function loadScheduleSuggestions() {
-        const container = document.getElementById('scheduleContent');
-        container.innerHTML = '<div class="empty-state"><span class="spinner sm"></span> Computing best times...</div>';
-        try {
-            const res = await fetch(`${API_BASE}/api/schedule/suggest`, { headers: authHeaders() });
-            const d = await res.json();
-            if (!res.ok) throw new Error('Failed');
-
-            let html = '';
-            if (d.queue_size > 0) html += `<div class="queue-badge" style="margin-bottom:1rem;">&#x1F4CB; ${d.queue_size} tool(s) in queue</div>`;
-            if (d.last_posted_at) html += `<div style="font-size:.82rem;color:var(--text-dim);margin-bottom:1rem;">Last post: ${new Date(d.last_posted_at).toLocaleString()}</div>`;
-
-            html += '<ul class="suggest-list">';
-            d.suggestions.forEach(s => {
-                const dt = new Date(s.suggested_time);
-                const timeStr = dt.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                html += `<li class="suggest-item ${s.is_prime_time ? 'prime' : ''}" onclick="useSchedule('${s.suggested_time}')">
-                    <span class="suggest-time">${timeStr}</span>
-                    <span class="suggest-platform">${s.platform}</span>
-                    <span class="suggest-reason">${esc(s.reason)}</span>
-                    ${s.is_prime_time ? '<span style="color:var(--green);font-size:.75rem;font-weight:700;">PRIME</span>' : ''}
-                </li>`;
-            });
-            html += '</ul>';
-            html += `<p style="color:var(--text-dim);font-size:.78rem;margin-top:1rem;">Click a suggestion to auto-fill the schedule on the Post tab.</p>`;
-            container.innerHTML = html;
-        } catch (err) { container.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load suggestions.</div>`; }
-    }
-
-    function useSchedule(isoTime) {
-        const dt = new Date(isoTime);
-        const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        document.getElementById('scheduled_at').value = local;
-        switchTab('postTab', document.querySelector('[data-tab="postTab"]'));
-        showToast('Schedule set! Submit your tool to use this time.', 'warning');
-    }
-
-    // ── Auto-refresh ──────────────────────────────────────────
-    setInterval(loadTools, 30000);
-    </script>
+// ── Auto refresh ─────────────────────────────
+setInterval(loadTools,30000);
+</script>
 </body>
 </html>
