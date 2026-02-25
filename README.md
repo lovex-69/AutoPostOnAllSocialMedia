@@ -54,7 +54,7 @@ Add a second external monitor in UptimeRobot so your service gets traffic even i
 
 - **Monitor Type:** HTTP(s)
 - **Friendly Name:** `execution-posting-health`
-- **URL:** `https://execution-posting-api.onrender.com/healthz`
+- **URL:** `https://execution-posting-api.onrender.com/health`
 - **Monitoring Interval:** `5 minutes` (or `2 minutes` on paid plans)
 - **Keyword/Port:** leave defaults
 
