@@ -16,6 +16,9 @@ Endpoints:
   GET   /api/analytics/export   — CSV export of all tools
   GET   /api/platform-limits    — platform duration/size limits
   GET   /api/schedule/suggest   — smart scheduling suggestions
+    GET   /api/music              — list music files in Supabase bucket
+    POST  /api/music/upload       — upload royalty-free music to Supabase bucket
+    DELETE /api/music/{path}      — delete one music file from Supabase bucket
 """
 
 import csv
@@ -37,6 +40,12 @@ from sqlalchemy import func
 from app.config import settings
 from app.database import get_db
 from app.models import AITool
+from app.services.supabase_music_uploader import (
+    SupabaseMusicUploadError,
+    delete_music_from_supabase,
+    list_music_in_supabase,
+    upload_music_to_supabase,
+)
 from app.services.video_validator import validate_video, get_platform_limits, compute_video_hash
 from app.services.smart_scheduler import (
     get_schedule_suggestions,
@@ -61,6 +70,7 @@ def verify_auth(x_auth_key: Optional[str] = Header(None)):
 # Directory for user-uploaded videos
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"}
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
@@ -88,6 +98,81 @@ def _tool_to_dict(t: AITool) -> dict:
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "posted_at": t.posted_at.isoformat() if t.posted_at else None,
     }
+
+
+@router.post("/music/upload")
+async def upload_music_file(
+    file: UploadFile = File(...),
+    folder: Optional[str] = Form(None),
+    upsert: bool = Form(False),
+    _auth: bool = Depends(verify_auth),
+):
+    """Upload one royalty-free track to the Supabase music bucket."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing file name.")
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format. Allowed: {sorted(ALLOWED_AUDIO_EXTENSIONS)}",
+        )
+
+    payload = await file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        result = upload_music_to_supabase(
+            file_name=file.filename,
+            file_bytes=payload,
+            content_type=file.content_type or "application/octet-stream",
+            folder=folder,
+            upsert=upsert,
+        )
+        logger.info("Music uploaded to Supabase: %s", result["path"])
+        return {
+            "ok": True,
+            "bucket": result["bucket"],
+            "path": result["path"],
+            "size": result["size"],
+            "public_url": result["public_url"],
+        }
+    except SupabaseMusicUploadError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/music")
+async def list_music_files(
+    folder: Optional[str] = None,
+    limit: int = 200,
+    _auth: bool = Depends(verify_auth),
+):
+    """List all music files from the Supabase music bucket."""
+    try:
+        items = list_music_in_supabase(folder=folder, limit=max(1, min(limit, 1000)))
+        return {
+            "ok": True,
+            "bucket": settings.SUPABASE_MUSIC_BUCKET,
+            "count": len(items),
+            "items": items,
+        }
+    except SupabaseMusicUploadError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/music/{object_path:path}")
+async def delete_music_file(
+    object_path: str,
+    _auth: bool = Depends(verify_auth),
+):
+    """Delete one music file from the Supabase music bucket."""
+    try:
+        result = delete_music_from_supabase(object_path=object_path)
+        logger.info("Music deleted from Supabase: %s", result["path"])
+        return {"ok": True, **result}
+    except SupabaseMusicUploadError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 # ── Create tool ──────────────────────────────────────────────────────────────

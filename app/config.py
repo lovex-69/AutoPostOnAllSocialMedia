@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     # ── Supabase Storage (for royalty-free music) ─────────────────────────
     SUPABASE_URL: Optional[str] = None       # e.g. https://xxxx.supabase.co
     SUPABASE_ANON_KEY: Optional[str] = None  # public anon key
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None  # preferred for server writes
     SUPABASE_MUSIC_BUCKET: str = "music"      # bucket name
 
     # ── X / Twitter (optional until configured) ──────────────────────────
