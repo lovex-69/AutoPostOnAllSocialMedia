@@ -44,11 +44,14 @@ services:
       - key: RENDER_EXTERNAL_URL
         value: "https://execution-posting-api.onrender.com"
 
-  # Cron job to keep the web service awake (pings /health every 14 minutes)
+  # Cron job to keep the web service awake (pings /health every 5 minutes)
   - type: cron
     name: keep-alive-ping
     runtime: python
-    buildCommand: pip install requests
-    schedule: "*/14 * * * *"
-    startCommand: python -c "import requests; r=requests.get('https://execution-posting-api.onrender.com/health', timeout=30); print(r.status_code, r.json())"
+    buildCommand: pip install -r requirements.txt
+    schedule: "*/5 * * * *"
+    startCommand: python scripts/keep_alive_ping.py
+    envVars:
+      - key: KEEP_ALIVE_URL
+        value: "https://execution-posting-api.onrender.com"
     plan: free

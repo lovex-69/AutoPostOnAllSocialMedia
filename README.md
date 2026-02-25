@@ -38,6 +38,18 @@ Health check: `GET http://localhost:8000/health`
 
 ---
 
+## Render Keep-Alive
+
+To reduce free-tier sleeping on Render, this repo includes a cron service in `render.yaml`:
+
+- Runs every `5` minutes
+- Executes `python scripts/keep_alive_ping.py`
+- Pings `${KEEP_ALIVE_URL}/health` (fallback: `RENDER_EXTERNAL_URL`)
+
+Set `KEEP_ALIVE_URL` to your Render web service URL if you rename the service.
+
+---
+
 ## Project Structure
 
 ```
