@@ -54,6 +54,8 @@ class Settings(BaseSettings):
 
     # ── Scheduler ─────────────────────────────────────────────────────────
     SCHEDULER_INTERVAL_MINUTES: int = 5
+    SCHEDULER_STARTUP_CATCHUP_ASYNC: bool = True
+    ENABLE_INTERNAL_KEEPALIVE: bool = False
 
     # ── Retry ─────────────────────────────────────────────────────────────
     MAX_RETRIES: int = 3

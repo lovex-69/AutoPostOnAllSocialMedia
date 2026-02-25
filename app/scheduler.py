@@ -11,6 +11,7 @@ Key features:
 import os
 import time
 import functools
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
@@ -505,8 +506,8 @@ def start_scheduler() -> None:
     )
     logger.info("Upload cleanup job registered (every 6h, retention=%dd).", _UPLOAD_RETENTION_DAYS)
 
-    # Keep-alive: ping /health every 10 minutes to prevent Render sleep
-    if _RENDER_URL:
+    # Optional internal keep-alive (external monitors are preferred)
+    if _RENDER_URL and settings.ENABLE_INTERNAL_KEEPALIVE:
         scheduler.add_job(
             _keep_alive_ping,
             "interval",
@@ -544,12 +545,18 @@ def start_scheduler() -> None:
         settings.SCHEDULER_INTERVAL_MINUTES,
     )
 
-    # Immediately process any overdue / waiting posts from while we slept
-    try:
-        logger.info("Running startup catch-up check for overdue posts...")
-        check_and_post()
-    except Exception as exc:
-        logger.exception("Startup catch-up failed: %s", exc)
+    # Process overdue posts after startup without blocking app readiness.
+    def _startup_catchup() -> None:
+        try:
+            logger.info("Running startup catch-up check for overdue posts...")
+            check_and_post()
+        except Exception as exc:
+            logger.exception("Startup catch-up failed: %s", exc)
+
+    if settings.SCHEDULER_STARTUP_CATCHUP_ASYNC:
+        threading.Thread(target=_startup_catchup, daemon=True).start()
+    else:
+        _startup_catchup()
 
 
 def stop_scheduler() -> None:
