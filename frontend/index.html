@@ -397,6 +397,8 @@ a:hover{text-decoration:underline}
 <script>
 const A = window.EXECUTION_API_URL || '';
 let _pfd = null; // pending FormData for force-submit
+let _keepAliveTimer = null;
+const _rawFetch = window.fetch.bind(window);
 
 // ── Helpers ──────────────────────────────────
 function auth() { return sessionStorage.getItem('ep_k') || ''; }
@@ -404,10 +406,46 @@ function hdr() { return {'X-Auth-Key': auth()}; }
 function logout() { sessionStorage.removeItem('ep_k'); location.reload(); }
 function esc(s) { if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function toast(m, t='success') { const e=document.getElementById('toast'); e.textContent=m; e.className=`toast ${t} show`; setTimeout(()=>e.classList.remove('show'),4000); }
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
 // ── Gate ─────────────────────────────────────
-async function chk() { try { const r=await fetch(`${A}/health`,{signal:AbortSignal.timeout(8000)}); return r.ok; } catch{return false;} }
-async function chkAuth(k) { try { const r=await fetch(`${A}/api/tools`,{headers:{'X-Auth-Key':k},signal:AbortSignal.timeout(10000)}); return r.ok; } catch{return false;} }
+async function chk() { try { const r=await _rawFetch(`${A}/health`,{signal:AbortSignal.timeout(15000)}); return r.ok; } catch{return false;} }
+async function chkAuth(k) { try { const r=await _rawFetch(`${A}/api/tools`,{headers:{'X-Auth-Key':k},signal:AbortSignal.timeout(25000)}); return r.ok; } catch{return false;} }
+
+function setServerState(on){
+  const dot=document.getElementById('sDot');
+  const label=document.getElementById('sLabel');
+  if(!dot||!label)return;
+  dot.className=`server-dot ${on?'on':'off'}`;
+  label.textContent=on?'Online':'Waking...';
+}
+
+async function wakeServer(maxMs=90000){
+  const start=Date.now();
+  setServerState(false);
+  while(Date.now()-start<maxMs){
+    if(await chk()){setServerState(true);return true;}
+    await sleep(5000);
+  }
+  return false;
+}
+
+async function apiFetch(url, init={}){
+  const reqInit={...init, signal:init.signal||AbortSignal.timeout(25000)};
+  try{
+    const r=await _rawFetch(url, reqInit);
+    if(r.status===502||r.status===503||r.status===504){
+      const ok=await wakeServer(90000);
+      if(!ok)return r;
+      return _rawFetch(url,{...init,signal:AbortSignal.timeout(45000)});
+    }
+    return r;
+  }catch(_){
+    const ok=await wakeServer(90000);
+    if(!ok)throw new Error('Server is sleeping. Please wait 30-60s and retry.');
+    return _rawFetch(url,{...init,signal:AbortSignal.timeout(45000)});
+  }
+}
 
 (async()=>{
   const st=document.getElementById('gateSt'), btn=document.getElementById('gateBtn'), k=auth();
@@ -437,14 +475,20 @@ document.getElementById('gateKey').addEventListener('keydown',e=>{if(e.key==='En
 function enter(){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').style.display='block';
+  setServerState(true);
+  if(!_keepAliveTimer){
+    _keepAliveTimer=setInterval(async()=>{
+      if(document.visibilityState!=='visible')return;
+      try{await _rawFetch(`${A}/health`,{signal:AbortSignal.timeout(15000)});}catch{}
+    },240000);
+  }
   loadTools(); loadSched(); loadLimits();
 }
 
 // ── Server pulse ─────────────────────────────
 setInterval(async()=>{
   const on=await chk();
-  document.getElementById('sDot').className=`server-dot ${on?'on':'off'}`;
-  document.getElementById('sLabel').textContent=on?'Online':'Sleeping';
+  setServerState(on);
 },60000);
 
 // ── Nav ──────────────────────────────────────
@@ -513,7 +557,7 @@ document.getElementById('frm').addEventListener('submit',async e=>{
     if(url)fd.append('video_url',url);else if(file)fd.append('video_file',file);else throw new Error('Video required');
     const sv=document.getElementById('fSched').value; if(sv)fd.append('scheduled_at',sv+':00Z');
 
-    const r=await fetch(`${A}/api/tools`,{method:'POST',body:fd,headers:hdr()});
+    const r=await apiFetch(`${A}/api/tools`,{method:'POST',body:fd,headers:hdr()});
     const data=await r.json(); if(!r.ok)throw new Error(data.detail||'Failed');
 
     if(data.needs_confirmation){
@@ -547,7 +591,7 @@ function showWarn(d){
 function closeWarn(){document.getElementById('warnModal').classList.remove('show');_pfd=null;const b=document.getElementById('submitBtn');b.disabled=false;b.textContent='Submit & Queue';}
 async function forceSubmit(){
   if(!_pfd)return; const cb=document.getElementById('warnConfirm');cb.disabled=true;cb.innerHTML='<span class="spin white"></span>';
-  try{_pfd.append('force','true');const r=await fetch(`${A}/api/tools`,{method:'POST',body:_pfd,headers:hdr()});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Failed');
+  try{_pfd.append('force','true');const r=await apiFetch(`${A}/api/tools`,{method:'POST',body:_pfd,headers:hdr()});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Failed');
     closeWarn();toast(`"${d.tool_name}" queued!`);confetti();document.getElementById('frm').reset();document.getElementById('fFileName').textContent='';document.getElementById('vidPreview').style.display='none';vidMode('url');loadTools();
   }catch(e){toast(e.message,'error');}finally{cb.disabled=false;cb.textContent='Post Anyway';_pfd=null;}
 }
@@ -572,7 +616,7 @@ function ring(done,total,size=36){
 // ── Load tools ───────────────────────────────
 async function loadTools(){
   try{
-    const r=await fetch(`${A}/api/tools`,{headers:hdr()});const tools=await r.json();const box=document.getElementById('toolBox');
+    const r=await apiFetch(`${A}/api/tools`,{headers:hdr()});const tools=await r.json();const box=document.getElementById('toolBox');
     if(!tools.length){box.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text-dim)">No tools yet</div>';return;}
     box.innerHTML='<div class="tool-list">'+tools.map(t=>{
       const ps=['youtube','x','linkedin','instagram','facebook','telegram_channel','reddit'];
@@ -596,15 +640,15 @@ async function loadTools(){
   }catch(e){console.error(e);}
 }
 
-async function retryTool(id){try{const r=await fetch(`${A}/api/tools/${id}/retry`,{method:'POST',headers:hdr()});const d=await r.json();if(!r.ok)throw new Error(d.detail);toast(`Retrying ${d.platforms_reset} platform(s)...`);loadTools();}catch(e){toast(e.message,'error');}}
-async function delTool(id,n){if(!confirm(`Delete "${n}"?`))return;try{const r=await fetch(`${A}/api/tools/${id}`,{method:'DELETE',headers:hdr()});if(!r.ok)throw new Error('Failed');toast(`"${n}" deleted`);loadTools();}catch(e){toast(e.message,'error');}}
+async function retryTool(id){try{const r=await apiFetch(`${A}/api/tools/${id}/retry`,{method:'POST',headers:hdr()});const d=await r.json();if(!r.ok)throw new Error(d.detail);toast(`Retrying ${d.platforms_reset} platform(s)...`);loadTools();}catch(e){toast(e.message,'error');}}
+async function delTool(id,n){if(!confirm(`Delete "${n}"?`))return;try{const r=await apiFetch(`${A}/api/tools/${id}`,{method:'DELETE',headers:hdr()});if(!r.ok)throw new Error('Failed');toast(`"${n}" deleted`);loadTools();}catch(e){toast(e.message,'error');}}
 
 // ── Heatmap ──────────────────────────────────
 async function loadHeatmap(){
   const box=document.getElementById('heatmapBox');
   box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div>';
   try{
-    const r=await fetch(`${A}/api/analytics/heatmap`,{headers:hdr()});const days=await r.json();
+    const r=await apiFetch(`${A}/api/analytics/heatmap`,{headers:hdr()});const days=await r.json();
     if(!r.ok)throw new Error('Failed');
     // Group into weeks (columns), 7 rows each
     const weeks=[];let week=[];
@@ -641,7 +685,7 @@ async function loadHeatmap(){
 async function loadRecent(){
   const box=document.getElementById('recentBox');
   try{
-    const r=await fetch(`${A}/api/analytics`,{headers:hdr()});const d=await r.json();
+    const r=await apiFetch(`${A}/api/analytics`,{headers:hdr()});const d=await r.json();
     if(!d.recent||!d.recent.length){box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)">No posts yet</div>';return;}
     box.innerHTML='<div class="tool-list">'+d.recent.map(t=>{
       const ps=['youtube','x','linkedin','instagram','facebook','telegram_channel','reddit'];
@@ -656,7 +700,7 @@ async function loadAnalytics(){
   const box=document.getElementById('analyticsBox');
   box.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text-dim)"><span class="spin"></span></div>';
   try{
-    const r=await fetch(`${A}/api/analytics`,{headers:hdr()});const d=await r.json();
+    const r=await apiFetch(`${A}/api/analytics`,{headers:hdr()});const d=await r.json();
     let h=`<div class="stats"><div class="stat"><div class="stat-val">${d.total}</div><div class="stat-label">Total</div></div><div class="stat"><div class="stat-val">${d.posted}</div><div class="stat-label">Posted</div></div><div class="stat"><div class="stat-val">${d.failed}</div><div class="stat-label">Failed</div></div><div class="stat"><div class="stat-val">${d.ready}</div><div class="stat-label">Queue</div></div><div class="stat"><div class="stat-val">${d.success_rate}%</div><div class="stat-label">Success</div></div></div>`;
     h+='<div style="font-size:.88rem;font-weight:700;margin-bottom:.8rem">Platform Performance</div>';
     Object.entries(d.platforms).forEach(([n,s])=>{
@@ -668,14 +712,14 @@ async function loadAnalytics(){
   }catch(e){box.innerHTML='<div style="color:var(--red);text-align:center">Failed</div>';}
 }
 
-async function exportCSV(){try{const r=await fetch(`${A}/api/analytics/export`,{headers:hdr()});if(!r.ok)throw new Error('Failed');const b=await r.blob(),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=`export_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('CSV exported!');}catch(e){toast(e.message,'error');}}
+async function exportCSV(){try{const r=await apiFetch(`${A}/api/analytics/export`,{headers:hdr()});if(!r.ok)throw new Error('Failed');const b=await r.blob(),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=`export_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('CSV exported!');}catch(e){toast(e.message,'error');}}
 
 // ── Health ───────────────────────────────────
 async function loadHealth(){
   const box=document.getElementById('healthBox');
   box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div>';
   try{
-    const r=await fetch(`${A}/api/health/tokens`,{headers:hdr()});const d=await r.json();
+    const r=await apiFetch(`${A}/api/health/tokens`,{headers:hdr()});const d=await r.json();
     const cards=[];const m=d.meta||{};
     if(m.configured){
       const dl=m.days_left!=null?m.days_left:(m.valid?9999:-1);
@@ -699,7 +743,7 @@ async function loadHealth(){
 // ── Platform Limits ──────────────────────────
 async function loadLimits(){
   try{
-    const r=await fetch(`${A}/api/platform-limits`,{headers:hdr()});const d=await r.json();
+    const r=await apiFetch(`${A}/api/platform-limits`,{headers:hdr()});const d=await r.json();
     let h='<div class="limits-inline">';
     for(const[k,l]of Object.entries(d)){
       const dur=l.max_duration_sec<60?l.max_duration_sec+'s':`${Math.floor(l.max_duration_sec/60)}m`;
@@ -715,7 +759,7 @@ async function loadSched(){
   const box=document.getElementById('schedBox');
   box.innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-dim)"><span class="spin"></span></div>';
   try{
-    const r=await fetch(`${A}/api/schedule/suggest`,{headers:hdr()});const d=await r.json();
+    const r=await apiFetch(`${A}/api/schedule/suggest`,{headers:hdr()});const d=await r.json();
     let h='';
     if(d.queue_size>0)h+=`<div class="queue-chip" style="margin-bottom:.5rem">${d.queue_size} in queue</div>`;
     h+='<ul class="sched-list">';
@@ -743,7 +787,7 @@ async function bulkUp(){
   if(!Array.isArray(tools)){toast('Must be an array','error');return;}
   btn.disabled=true;btn.innerHTML='<span class="spin white"></span> Uploading...';
   try{
-    const r=await fetch(`${A}/api/tools/bulk`,{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(tools)});
+    const r=await apiFetch(`${A}/api/tools/bulk`,{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(tools)});
     const d=await r.json();if(!r.ok)throw new Error(d.detail);
     let h=`<span style="color:var(--green);font-weight:700">✓ ${d.total} tool(s) created</span>`;
     if(d.errors&&d.errors.length){h+=`<br><span style="color:var(--red)">${d.errors.length} error(s):</span><ul style="padding-left:1rem;margin-top:.2rem">`;d.errors.forEach(e=>{h+=`<li style="color:var(--red);font-size:.76rem">Row ${e.index}: ${e.error}</li>`;});h+='</ul>';}
