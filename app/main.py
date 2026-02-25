@@ -85,3 +85,9 @@ async def serve_frontend():
 async def health_check():
     """Simple liveness probe (supports GET + HEAD for UptimeRobot)."""
     return {"status": "healthy"}
+
+
+@app.api_route("/healthz", methods=["GET", "HEAD"], tags=["ops"])
+async def health_check_alias():
+    """Alias liveness probe for external monitors."""
+    return {"status": "healthy"}

@@ -48,6 +48,18 @@ To reduce free-tier sleeping on Render, this repo includes a cron service in `re
 
 Set `KEEP_ALIVE_URL` to your Render web service URL if you rename the service.
 
+### UptimeRobot Backup (Recommended)
+
+Add a second external monitor in UptimeRobot so your service gets traffic even if Render cron is delayed.
+
+- **Monitor Type:** HTTP(s)
+- **Friendly Name:** `execution-posting-health`
+- **URL:** `https://execution-posting-api.onrender.com/healthz`
+- **Monitoring Interval:** `5 minutes` (or `2 minutes` on paid plans)
+- **Keyword/Port:** leave defaults
+
+This is a best-effort mitigation for free plans and helps reduce cold starts.
+
 ---
 
 ## Project Structure
